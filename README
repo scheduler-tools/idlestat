@@ -1,0 +1,13 @@
+This tool gives some stats based on the result from ftrace.
+
+One example of usage:
+
+ trace-cmd record -e cpu_idle
+
+ ... acquire data ...
+
+ trace-cmd report trace.dat > trace-cpuidle.dat
+
+ idlestat ./trace-cpuidle.dat
+
+The tool does not handle the file correctly if there are non cpu_idle traces.
