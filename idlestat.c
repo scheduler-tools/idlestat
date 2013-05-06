@@ -276,8 +276,7 @@ static struct cpuidle_datas *load_data(const char *path)
 	FILE *f;
 	unsigned int state = 0, cpu = 0, nrcpus= 0;
 	double time, begin, end;
-	size_t count;
-
+	size_t count, start;
 	struct cpuidle_datas *datas;
 
 	f = fopen(path, "r");
@@ -302,13 +301,18 @@ static struct cpuidle_datas *load_data(const char *path)
 
 	datas->nrcpus = nrcpus;
 
-	for (; fgets(buffer, BUFSIZE, f); count++) {
+	for (start = 1; fgets(buffer, BUFSIZE, f); count++) {
+
+		if (!strstr(buffer, "cpu_idle"))
+			continue;
 
 		sscanf(buffer, "%*[^]]] %lf:%*[^=]=%u%*[^=]=%d",
 		       &time, &state, &cpu);
 
-		if (count == 2)
+		if (start) {
 			begin = time;
+			start = 0;
+		}
 		end = time;
 
 		store_data(time, state, cpu, datas, count);
