@@ -1,11 +1,15 @@
+#define _GNU_SOURCE
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <sched.h>
 #include <string.h>
 #include <values.h>
 #include <sys/time.h>
+#include <sys/types.h>
+#include <sys/signal.h>
 #include <sys/resource.h>
 
 #define BUFSIZE 256
@@ -271,7 +275,10 @@ static int store_data(double time, int state, int cpu,
 	return 0;
 }
 
-static struct cpuidle_datas *load_data(const char *path)
+#define TRACE_CMD_FORMAT "%*[^]]] %lf:%*[^=]=%u%*[^=]=%d"
+#define TRACE_FORMAT "%*[^]]] %*s %lf:%*[^=]=%u%*[^=]=%d"
+
+static struct cpuidle_datas *idlestat_load(const char *path)
 {
 	FILE *f;
 	unsigned int state = 0, cpu = 0, nrcpus= 0;
@@ -301,13 +308,14 @@ static struct cpuidle_datas *load_data(const char *path)
 
 	datas->nrcpus = nrcpus;
 
+	/* TODO: read topology information */
+
 	for (start = 1; fgets(buffer, BUFSIZE, f); count++) {
 
 		if (!strstr(buffer, "cpu_idle"))
 			continue;
 
-		sscanf(buffer, "%*[^]]] %lf:%*[^=]=%u%*[^=]=%d",
-		       &time, &state, &cpu);
+		sscanf(buffer, TRACE_FORMAT, &time, &state, &cpu);
 
 		if (start) {
 			begin = time;
@@ -386,6 +394,7 @@ struct idledebug_options {
 	bool dump;
 	int cstate;
 	int iterations;
+	unsigned int duration;
 };
 
 int getoptions(int argc, char *argv[], struct idledebug_options *options)
@@ -399,7 +408,7 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, "gdvhi:c:",
+		c = getopt_long(argc, argv, "gdvhi:c:t:",
 				long_options, &optindex);
 		if (c == -1)
 			break;
@@ -416,6 +425,9 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 			break;
 		case 'c':
 			options->cstate = atoi(optarg);
+			break;
+		case 't':
+			options->duration = atoi(optarg);
 			break;
 		case 'h':
 			help(argv[0]);
@@ -446,6 +458,187 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 	return 0;
 }
 
+#define TRACE_PATH "/sys/kernel/debug/tracing"
+#define TRACE_ON_PATH TRACE_PATH "/tracing_on"
+#define TRACE_BUFFER_SIZE_PATH TRACE_PATH "/buffer_size_kb"
+#define TRACE_BUFFER_TOTAL_PATH TRACE_PATH "/buffer_total_size_kb"
+#define TRACE_CPUIDLE_EVENT_PATH TRACE_PATH "/events/power/cpu_idle/enable"
+#define TRACE_EVENT_PATH TRACE_PATH "/events/enable"
+#define TRACE_FREE TRACE_PATH "/free_buffer"
+#define TRACE_FILE TRACE_PATH "/trace"
+#define TRACE_IDLE_NRHITS_PER_SEC 10000
+#define TRACE_IDLE_LENGTH 196
+
+static int write_int(const char *path, int val)
+{
+	FILE *f;
+
+	f = fopen(path, "w");
+	if (!f) {
+		fprintf(stderr, "failed to open '%s': %m\n", path);
+		return -1;
+	}
+
+	fprintf(f, "%d", val);
+
+	fclose(f);
+
+	return 0;
+}
+
+static int read_int(const char *path, int *val)
+{
+	FILE *f;
+
+	f = fopen(path, "r");
+	if (!f) {
+		fprintf(stderr, "failed to open '%s': %m\n", path);
+		return -1;
+	}
+
+	fscanf(f, "%d", val);
+
+	fclose(f);
+
+	return 0;
+}
+
+static int idlestat_trace_enable(bool enable)
+{
+	return write_int(TRACE_ON_PATH, enable);
+}
+
+static int idlestat_flush_trace(void)
+{
+	return write_int(TRACE_FILE, 0);
+}
+
+static int idlestat_file_for_each_line(const char *path, void *data,
+				       int (*handler)(const char *, void *))
+{
+	FILE *f;
+	int ret;
+
+	if (!handler)
+		return -1;
+
+	f = fopen(path, "r");
+	if (!f) {
+		fprintf(f, "failed to open '%s': %m\n", path);
+		return -1;
+	}
+
+	while (fgets(buffer, BUFSIZE, f)) {
+
+		ret = handler(buffer, data);
+		if (ret)
+			break;
+	}
+
+	fclose(f);
+
+	return ret;
+}
+
+static int store_line(const char *line, void *data)
+{
+	FILE *f = data;
+
+	/* ignore comment line */
+	if (line[0] == '#')
+		return 0;
+
+	fprintf(f, "%s", line);
+
+	return 0;
+}
+
+static int idlestat_store(const char *path)
+{
+	FILE *f;
+	int ret;
+
+	ret = sysconf(_SC_NPROCESSORS_CONF);
+	if (ret < 0)
+		return -1;
+
+	f = fopen(path, "w+");
+	if (!f) {
+		fprintf(f, "failed to open '%s': %m\n", path);
+		return -1;
+	}
+
+	fprintf(f, "version = 1\n");
+	fprintf(f, "cpus=%d\n", ret);
+
+	/* TODO: add topology information here */
+
+	ret = idlestat_file_for_each_line(TRACE_FILE, f, store_line);
+
+	fclose(f);
+
+	return ret;
+}
+
+static int idlestat_init_trace(unsigned int duration)
+{
+	int bufsize;
+
+	/* Assuming the worst case where we can have
+	 * TRACE_IDLE_NRHITS_PER_SEC.  Each state enter/exit line are
+	 * 196 chars wide, so we have 2 x 196 x TRACE_IDLE_NRHITS_PER_SEC bytes.
+	 * divided by 2^10 to have Kb. We add 1Kb to be sure to round up.
+	 */
+	bufsize = 2 * TRACE_IDLE_LENGTH * TRACE_IDLE_NRHITS_PER_SEC * duration;
+	bufsize = (bufsize / (1 << 10)) + 1;
+
+	if (write_int(TRACE_BUFFER_SIZE_PATH, bufsize))
+		return -1;
+
+	if (read_int(TRACE_BUFFER_TOTAL_PATH, &bufsize))
+		return -1;
+
+	printf("Total trace buffer: %d kB\n", bufsize);
+
+	/* Disable all the traces */
+	if (write_int(TRACE_EVENT_PATH, 0))
+		return -1;
+
+	/* Enable only cpu_idle traces */
+	if (write_int(TRACE_CPUIDLE_EVENT_PATH, 1))
+		return -1;
+
+	return 0;
+}
+
+static int idlestat_wake_all(void)
+{
+	int rcpu, i, ret;
+	cpu_set_t cpumask;
+
+	ret = sysconf(_SC_NPROCESSORS_CONF);
+	if (ret < 0)
+		return -1;
+
+	rcpu = sched_getcpu();
+	if (rcpu < 0)
+		return -1;
+
+	for (i = 0; i < ret; i++) {
+
+		/* Pointless to wake up ourself */
+		if (i == rcpu)
+			continue;
+
+		CPU_ZERO(&cpumask);
+		CPU_SET(i, &cpumask);
+
+		sched_setaffinity(0, sizeof(cpumask), &cpumask);
+	}
+
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	struct cpuidle_datas *datas;
@@ -453,14 +646,68 @@ int main(int argc, char *argv[])
 	struct idledebug_options options;
 	struct rusage rusage;
 
+	/* We have to manipulate some files only accessible to root */
+	if (getuid()) {
+		fprintf(stderr, "must be root to run the tool\n");
+		return -1;
+	}
 
 	if (getoptions(argc, argv, &options))
 		return 1;
 
-	datas = load_data(argv[optind]);
+	/* Acquisition time specified means we will get the traces */
+	if (options.duration) {
+
+		/* Stop tracing (just in case) */
+		if (idlestat_trace_enable(false))
+			return -1;
+
+		/* Initialize the traces for cpu_idle and increase the
+		 * buffer size to let 'idlestat' to sleep instead of
+		 * acquiring data, hence preventing it to pertubate the
+		 * measurements. */
+		if (idlestat_init_trace(options.duration))
+			return 1;
+
+		/* Remove all the previous traces */
+		if (idlestat_flush_trace())
+			return -1;
+
+		/* Start the recording */
+		if (idlestat_trace_enable(true))
+			return -1;
+
+		/* We want to prevent to begin the acquisition with a cpu in
+		 * idle state because we won't be able later to close the
+		 * state and to determine which state it was. */
+		if (idlestat_wake_all())
+			return -1;
+
+		/* Do nothing */
+		sleep(options.duration);
+
+		/* Stop tracing */
+		if (idlestat_trace_enable(false))
+			return -1;
+
+		/* At this point we should have some spurious wake up
+		 * at the beginning of the traces and at the end (wake
+		 * up all cpus and timer expiration for the timer
+		 * acquisition). We assume these will be lost in the number
+		 * of other traces and could be negligible. */
+		if (idlestat_store(argv[optind]))
+			return -1;
+	}
+
+	/* Load the idle states information */
+	datas = idlestat_load(argv[optind]);
 	if (!datas)
 		return 1;
 
+	/* Compute cluster idle intersection between cpus belonging to
+	 * the same cluster
+	 * TODO: add topology information
+	 */
 	cluster = cluster_data(datas);
 	if (!cluster)
 		return 1;
@@ -473,6 +720,8 @@ int main(int argc, char *argv[])
 		display_data(cluster, options.cstate);
 	}
 
+	/* Computation could be heavy, let's give some information
+	 * about the memory consumption */
 	if (options.debug) {
 		getrusage(RUSAGE_SELF, &rusage);
 		printf("max rss : %ld kB\n", rusage.ru_maxrss);
