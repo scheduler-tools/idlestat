@@ -1,11 +1,11 @@
 CFLAGS?=-g -Wall
 CC?=gcc
 
-OBJS = idlestat.o
+OBJS = idlestat.o trace.o utils.o
 
 default: idlestat
 
-idledebug: $(OBJS)
+idlestat: $(OBJS)
 	$(CC) ${CFLAGS} $(OBJS) -lncurses -o $@
 
 clean:

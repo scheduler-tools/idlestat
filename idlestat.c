@@ -12,6 +12,9 @@
 #include <sys/signal.h>
 #include <sys/resource.h>
 
+#include "utils.h"
+#include "trace.h"
+
 #define BUFSIZE 256
 #define MAXCSTATE 8
 #define MAX(A,B) (A > B ? A : B)
@@ -458,63 +461,8 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 	return 0;
 }
 
-#define TRACE_PATH "/sys/kernel/debug/tracing"
-#define TRACE_ON_PATH TRACE_PATH "/tracing_on"
-#define TRACE_BUFFER_SIZE_PATH TRACE_PATH "/buffer_size_kb"
-#define TRACE_BUFFER_TOTAL_PATH TRACE_PATH "/buffer_total_size_kb"
-#define TRACE_CPUIDLE_EVENT_PATH TRACE_PATH "/events/power/cpu_idle/enable"
-#define TRACE_EVENT_PATH TRACE_PATH "/events/enable"
-#define TRACE_FREE TRACE_PATH "/free_buffer"
-#define TRACE_FILE TRACE_PATH "/trace"
-#define TRACE_IDLE_NRHITS_PER_SEC 10000
-#define TRACE_IDLE_LENGTH 196
-
-static int write_int(const char *path, int val)
-{
-	FILE *f;
-
-	f = fopen(path, "w");
-	if (!f) {
-		fprintf(stderr, "failed to open '%s': %m\n", path);
-		return -1;
-	}
-
-	fprintf(f, "%d", val);
-
-	fclose(f);
-
-	return 0;
-}
-
-static int read_int(const char *path, int *val)
-{
-	FILE *f;
-
-	f = fopen(path, "r");
-	if (!f) {
-		fprintf(stderr, "failed to open '%s': %m\n", path);
-		return -1;
-	}
-
-	fscanf(f, "%d", val);
-
-	fclose(f);
-
-	return 0;
-}
-
-static int idlestat_trace_enable(bool enable)
-{
-	return write_int(TRACE_ON_PATH, enable);
-}
-
-static int idlestat_flush_trace(void)
-{
-	return write_int(TRACE_FILE, 0);
-}
-
 static int idlestat_file_for_each_line(const char *path, void *data,
-				       int (*handler)(const char *, void *))
+					int (*handler)(const char *, void *))
 {
 	FILE *f;
 	int ret;
@@ -523,13 +471,13 @@ static int idlestat_file_for_each_line(const char *path, void *data,
 		return -1;
 
 	f = fopen(path, "r");
+
 	if (!f) {
 		fprintf(f, "failed to open '%s': %m\n", path);
 		return -1;
 	}
 
 	while (fgets(buffer, BUFSIZE, f)) {
-
 		ret = handler(buffer, data);
 		if (ret)
 			break;
@@ -538,19 +486,6 @@ static int idlestat_file_for_each_line(const char *path, void *data,
 	fclose(f);
 
 	return ret;
-}
-
-static int store_line(const char *line, void *data)
-{
-	FILE *f = data;
-
-	/* ignore comment line */
-	if (line[0] == '#')
-		return 0;
-
-	fprintf(f, "%s", line);
-
-	return 0;
 }
 
 static int idlestat_store(const char *path)
@@ -578,37 +513,6 @@ static int idlestat_store(const char *path)
 	fclose(f);
 
 	return ret;
-}
-
-static int idlestat_init_trace(unsigned int duration)
-{
-	int bufsize;
-
-	/* Assuming the worst case where we can have
-	 * TRACE_IDLE_NRHITS_PER_SEC.  Each state enter/exit line are
-	 * 196 chars wide, so we have 2 x 196 x TRACE_IDLE_NRHITS_PER_SEC bytes.
-	 * divided by 2^10 to have Kb. We add 1Kb to be sure to round up.
-	 */
-	bufsize = 2 * TRACE_IDLE_LENGTH * TRACE_IDLE_NRHITS_PER_SEC * duration;
-	bufsize = (bufsize / (1 << 10)) + 1;
-
-	if (write_int(TRACE_BUFFER_SIZE_PATH, bufsize))
-		return -1;
-
-	if (read_int(TRACE_BUFFER_TOTAL_PATH, &bufsize))
-		return -1;
-
-	printf("Total trace buffer: %d kB\n", bufsize);
-
-	/* Disable all the traces */
-	if (write_int(TRACE_EVENT_PATH, 0))
-		return -1;
-
-	/* Enable only cpu_idle traces */
-	if (write_int(TRACE_CPUIDLE_EVENT_PATH, 1))
-		return -1;
-
-	return 0;
 }
 
 static int idlestat_wake_all(void)
