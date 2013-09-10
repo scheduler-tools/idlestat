@@ -18,6 +18,8 @@
 #include "list.h"
 #include "topology.h"
 
+#define IDLESTAT_VERSION "0.1"
+
 static char buffer[BUFSIZE];
 
 static inline int error(const char *str)
@@ -425,9 +427,15 @@ struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
 	return result;
 }
 
-static int help(const char *cmd)
+static void help(const char *cmd)
 {
-	fprintf(stderr, "%s [-d/--dump] [-c/--cstate=x] <file>\n", cmd);
+	fprintf(stderr, "%s [-d/--dump] [-c/--cstate=x] <file>\n", basename(cmd));
+	exit(0);
+}
+
+static void version(const char *cmd)
+{
+	printf("%s version %s\n", basename(cmd), IDLESTAT_VERSION);
 	exit(0);
 }
 
@@ -437,6 +445,7 @@ static struct option long_options[] = {
 	{ "cstate",     0, 0, 'c' },
 	{ "debug",      0, 0, 'g' },
 	{ "verbose",    0, 0, 'v' },
+	{ "version",    0, 0, 'V' },
 	{ "help",       0, 0, 'h' },
 	{ 0,            0, 0, 0   }
 };
@@ -460,7 +469,7 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, "gdvhi:c:t:",
+		c = getopt_long(argc, argv, "gdvVhi:c:t:",
 				long_options, &optindex);
 		if (c == -1)
 			break;
@@ -483,6 +492,9 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 			break;
 		case 'h':
 			help(argv[0]);
+			break;
+		case 'V':
+			version(argv[0]);
 			break;
 		case '?':
 			fprintf(stderr, "%s: Unknown option %c'.\n",
