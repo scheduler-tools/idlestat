@@ -12,42 +12,13 @@
 #include <sys/signal.h>
 #include <sys/resource.h>
 
+#include "idlestat.h"
 #include "utils.h"
 #include "trace.h"
-
-#define BUFSIZE 256
-#define MAXCSTATE 8
-#define MAX(A,B) (A > B ? A : B)
-#define MIN(A,B) (A < B ? A : B)
-#define AVG(A,B,I) ((A) + ((B - A) / (I)))
+#include "list.h"
+#include "topology.h"
 
 static char buffer[BUFSIZE];
-
-struct cpuidle_data {
-	double begin;
-	double end;
-	double duration;
-};
-
-struct cpuidle_cstate {
-	struct cpuidle_data *data;
-	int nrdata;
-	double avg_time;
-	double max_time;
-	double min_time;
-	double duration;
-};
-
-struct cpuidle_cstates {
-	struct cpuidle_cstate cstate[MAXCSTATE];
-	int last_cstate;
-	int cstate_max;
-};
-
-struct cpuidle_datas {
-	struct cpuidle_cstates *cstates;
-	int nrcpus;
-};
 
 static inline int error(const char *str)
 {
@@ -61,65 +32,70 @@ static inline void *ptrerror(const char *str)
 	return NULL;
 }
 
-static int dump_data(struct cpuidle_datas *datas, int state, int count)
+static int dump_cstates(struct cpuidle_cstates *cstates, int state,
+			int count, char *str)
 {
-	int i = 0, j, k, nrcpus = datas->nrcpus;
-	struct cpuidle_cstates *cstates;
+	int j, k;
 	struct cpuidle_cstate *cstate;
 
-	do {
-		cstates = &datas->cstates[i];
+	for (j = 0; j < cstates->cstate_max + 1; j++) {
 
-		for (j = 0; j < cstates->cstate_max + 1; j++) {
+		if (state != -1 && state != j)
+			continue;
 
-			if (state != -1 && state != j)
-				continue;
+		cstate = &cstates->cstate[j];
 
-			cstate = &cstates->cstate[j];
-
-			for (k = 0; k < MIN(count, cstate->nrdata); k++) {
-				printf("%lf %d\n", cstate->data[k].begin, j);
-				printf("%lf 0\n", cstate->data[k].end);
-			}
-
-			/* add a break */
-			printf("\n");
+		for (k = 0; k < MIN(count, cstate->nrdata); k++) {
+			printf("%lf %d\n", cstate->data[k].begin, j);
+			printf("%lf 0\n", cstate->data[k].end);
 		}
 
-		i++;
-
-	} while (i < nrcpus && nrcpus != -1);
+		/* add a break */
+		printf("\n");
+	}
 
 	return 0;
 }
 
-static int display_data(struct cpuidle_datas *datas, int state)
+static int display_cstates(struct cpuidle_cstates *cstates, int state,
+			int count, char *str)
 {
-	int i = 0, j, nrcpus = datas->nrcpus;
-	struct cpuidle_cstates *cstates;
+	int j;
 	struct cpuidle_cstate *cstate;
+
+	for (j = 0; j < cstates->cstate_max + 1; j++) {
+
+		if (state != -1 && state != j)
+			continue;
+
+		cstate = &cstates->cstate[j];
+
+		printf("%s", str);
+		printf("/state%d, %d hits, total %.2lfus," \
+		       "avg %.2lfus, min %.2lfus, max %.2lfus\n",
+		       j, cstate->nrdata, cstate->duration,
+		       cstate->avg_time, cstate->min_time,
+		       cstate->max_time);
+	}
+
+	return 0;
+}
+
+int dump_all_data(struct cpuidle_datas *datas, int state, int count,
+		int (*dump)(struct cpuidle_cstates *, int,  int, char *))
+{
+	int i = 0, nrcpus = datas->nrcpus;
+	struct cpuidle_cstates *cstates;
 
 	do {
 		cstates = &datas->cstates[i];
 
-		for (j = 0; j < cstates->cstate_max + 1; j++) {
+		if (nrcpus == -1)
+			sprintf(buffer, "cluster");
+		else
+			sprintf(buffer, "cpu%d", i);
 
-			if (state != -1 && state != j)
-				continue;
-
-			cstate = &cstates->cstate[j];
-
-			if (nrcpus == -1)
-				printf("cluster");
-			else
-				printf("cpu%d", i);
-
-			printf("/state%d, %d hits, total %.2lfus, "\
-			       "avg %.2lfus, min %.2lfus, max %.2lfus\n",
-			       j, cstate->nrdata, cstate->duration,
-			       cstate->avg_time, cstate->min_time,
-			       cstate->max_time);
-		}
+		dump(cstates, state, count, buffer);
 
 		i++;
 
@@ -286,7 +262,7 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 	FILE *f;
 	unsigned int state = 0, cpu = 0, nrcpus= 0;
 	double time, begin, end;
-	size_t count, start;
+	size_t count, start = 1;
 	struct cpuidle_datas *datas;
 
 	f = fopen(path, "r");
@@ -311,10 +287,12 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 
 	datas->nrcpus = nrcpus;
 
-	/* TODO: read topology information */
+	fgets(buffer, BUFSIZE, f);
 
-	for (start = 1; fgets(buffer, BUFSIZE, f); count++) {
+	/* read topology information */
+	read_cpu_topo_info(f, buffer);
 
+	do {
 		if (!strstr(buffer, "cpu_idle"))
 			continue;
 
@@ -327,7 +305,8 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 		end = time;
 
 		store_data(time, state, cpu, datas, count);
-	}
+		count++;
+	} while (fgets(buffer, BUFSIZE, f));
 
 	fclose(f);
 
@@ -371,6 +350,76 @@ struct cpuidle_datas *cluster_data(struct cpuidle_datas *datas)
 		}
 
 		result->cstates[0].cstate[i] = *cstates;
+	}
+
+	return result;
+}
+
+struct cpuidle_cstates *core_cluster_data(struct cpu_core *s_core)
+{
+	struct cpuidle_cstate *c1, *cstates;
+	struct cpuidle_cstates *result;
+	struct cpu_cpu      *s_cpu;
+	int i;
+	int cstate_max = -1;
+
+	if (!s_core->is_ht)
+		list_for_each_entry(s_cpu, &s_core->cpu_head, list_cpu)
+			return s_cpu->cstates;
+
+	result = calloc(sizeof(*result), 1);
+	if (!result)
+		return NULL;
+
+	/* hack but negligeable overhead */
+	list_for_each_entry(s_cpu, &s_core->cpu_head, list_cpu)
+		cstate_max = MAX(cstate_max, s_cpu->cstates->cstate_max);
+	result->cstate_max = cstate_max;
+
+	for (i = 0; i < cstate_max + 1; i++) {
+		cstates = NULL;
+		list_for_each_entry(s_cpu, &s_core->cpu_head, list_cpu) {
+			c1 = &s_cpu->cstates->cstate[i];
+
+			cstates = inter(cstates, c1);
+			if (!cstates)
+				continue;
+		}
+
+		result->cstate[i] = *cstates;
+	}
+
+	return result;
+}
+
+struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
+{
+	struct cpuidle_cstate *c1, *cstates;
+	struct cpuidle_cstates *result;
+	struct cpu_core      *s_core;
+	int i;
+	int cstate_max = -1;
+
+	result = calloc(sizeof(*result), 1);
+	if (!result)
+		return NULL;
+
+	/* hack but negligeable overhead */
+	list_for_each_entry(s_core, &s_phy->core_head, list_core)
+		cstate_max = MAX(cstate_max, s_core->cstates->cstate_max);
+	result->cstate_max = cstate_max;
+
+	for (i = 0; i < cstate_max + 1; i++) {
+		cstates = NULL;
+		list_for_each_entry(s_core, &s_phy->core_head, list_core) {
+			c1 = &s_core->cstates->cstate[i];
+
+			cstates = inter(cstates, c1);
+			if (!cstates)
+				continue;
+		}
+
+		result->cstate[i] = *cstates;
 	}
 
 	return result;
@@ -506,7 +555,8 @@ static int idlestat_store(const char *path)
 	fprintf(f, "version = 1\n");
 	fprintf(f, "cpus=%d\n", ret);
 
-	/* TODO: add topology information here */
+	/* output topology information */
+	output_cpu_topo_info(f);
 
 	ret = idlestat_file_for_each_line(TRACE_FILE, f, store_line);
 
@@ -559,8 +609,14 @@ int main(int argc, char *argv[])
 	if (getoptions(argc, argv, &options))
 		return 1;
 
+	/* init cpu topoinfo */
+	init_cpu_topo_info();
+
 	/* Acquisition time specified means we will get the traces */
 	if (options.duration) {
+
+		/* Read cpu topology info from sysfs */
+		read_sysfs_cpu_topo();
 
 		/* Stop tracing (just in case) */
 		if (idlestat_trace_enable(false))
@@ -610,18 +666,33 @@ int main(int argc, char *argv[])
 
 	/* Compute cluster idle intersection between cpus belonging to
 	 * the same cluster
-	 * TODO: add topology information
 	 */
-	cluster = cluster_data(datas);
-	if (!cluster)
-		return 1;
-
-	if (options.dump > 0) {
-		dump_data(datas, options.cstate, options.iterations);
-		dump_data(cluster, options.cstate, options.iterations);
+	if (0 == establish_idledata_to_topo(datas)) {
+		if (options.dump > 0)
+			dump_cpu_topo_info(options.cstate, options.iterations,
+						dump_cstates);
+		else
+			dump_cpu_topo_info(options.cstate, options.iterations,
+						display_cstates);
 	} else {
-		display_data(datas, options.cstate);
-		display_data(cluster, options.cstate);
+		cluster = cluster_data(datas);
+		if (!cluster)
+			return 1;
+
+		if (options.dump > 0) {
+			dump_all_data(datas, options.cstate,
+					options.iterations, dump_cstates);
+			dump_all_data(cluster, options.cstate,
+					options.iterations, dump_cstates);
+		} else {
+			dump_all_data(datas, options.cstate,
+					options.iterations, display_cstates);
+			dump_all_data(cluster, options.cstate,
+					options.iterations, display_cstates);
+		}
+
+		free(cluster->cstates);
+		free(cluster);
 	}
 
 	/* Computation could be heavy, let's give some information
@@ -630,6 +701,9 @@ int main(int argc, char *argv[])
 		getrusage(RUSAGE_SELF, &rusage);
 		printf("max rss : %ld kB\n", rusage.ru_maxrss);
 	}
+
+	release_cpu_topo_cstates();
+	release_cpu_topo_info();
 
 	return 0;
 }

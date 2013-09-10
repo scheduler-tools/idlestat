@@ -1,7 +1,7 @@
 CFLAGS?=-g -Wall
 CC?=gcc
 
-OBJS = idlestat.o trace.o utils.o
+OBJS = idlestat.o topology.o trace.o utils.o
 
 default: idlestat
 

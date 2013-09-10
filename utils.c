@@ -53,3 +53,39 @@ int store_line(const char *line, void *data)
 
 	return 0;
 }
+
+/*
+ * This functions is a helper to read a specific file content and store
+ * the content inside a variable pointer passed as parameter, the format
+ * parameter gives the variable type to be read from the file.
+ *
+ * @path : directory path containing the file
+ * @name : name of the file to be read
+ * @format : the format of the format
+ * @value : a pointer to a variable to store the content of the file
+ * Returns 0 on success, -1 otherwise
+ */
+int file_read_value(const char *path, const char *name,
+			const char *format, void *value)
+{
+	FILE *file;
+	char *rpath;
+	int ret;
+
+	ret = asprintf(&rpath, "%s/%s", path, name);
+	if (ret < 0)
+		return ret;
+
+	file = fopen(rpath, "r");
+	if (!file) {
+		ret = -1;
+		goto out_free;
+	}
+
+	ret = fscanf(file, format, value) == EOF ? -1 : 0;
+
+	fclose(file);
+out_free:
+	free(rpath);
+	return ret;
+}
