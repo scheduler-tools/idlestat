@@ -6,10 +6,8 @@
 #include <unistd.h>
 #include <sched.h>
 #include <string.h>
-#include <values.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/signal.h>
 #include <sys/resource.h>
 
 #include "idlestat.h"
@@ -263,7 +261,7 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 {
 	FILE *f;
 	unsigned int state = 0, cpu = 0, nrcpus= 0;
-	double time, begin, end;
+	double time, begin = 0, end = 0;
 	size_t count, start = 1;
 	struct cpuidle_datas *datas;
 
