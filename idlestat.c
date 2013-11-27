@@ -535,14 +535,15 @@ static void version(const char *cmd)
 }
 
 static struct option long_options[] = {
-	{ "dump",       0, 0, 'd' },
-	{ "iterations", 0, 0, 'i' },
-	{ "cstate",     0, 0, 'c' },
-	{ "debug",      0, 0, 'g' },
-	{ "verbose",    0, 0, 'v' },
-	{ "version",    0, 0, 'V' },
-	{ "help",       0, 0, 'h' },
-	{ 0,            0, 0, 0   }
+	{ "dump",        0, 0, 'd' },
+	{ "iterations",  0, 0, 'i' },
+	{ "cstate",      0, 0, 'c' },
+	{ "debug",       0, 0, 'g' },
+	{ "output-file", 0, 0, 'o' },
+	{ "verbose",     0, 0, 'v' },
+	{ "version",     0, 0, 'V' },
+	{ "help",        0, 0, 'h' },
+	{ 0,             0, 0, 0   }
 };
 
 struct idledebug_options {
@@ -550,6 +551,7 @@ struct idledebug_options {
 	bool dump;
 	int cstate;
 	int iterations;
+	char *filename;
 	unsigned int duration;
 };
 
@@ -559,12 +561,13 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 
 	memset(options, 0, sizeof(*options));
 	options->cstate = -1;
+	options->filename = NULL;
 
 	while (1) {
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, "gdvVhi:c:t:",
+		c = getopt_long(argc, argv, "gdvVho:i:c:t:",
 				long_options, &optindex);
 		if (c == -1)
 			break;
@@ -584,6 +587,9 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 			break;
 		case 't':
 			options->duration = atoi(optarg);
+			break;
+		case 'o':
+			options->filename = optarg;
 			break;
 		case 'h':
 			help(argv[0]);
@@ -609,7 +615,7 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 		fprintf(stderr, "dump values must be a positive value\n");
 	}
 
-	if (optind == argc) {
+	if (NULL == options->filename) {
 		fprintf(stderr, "expected filename\n");
 		return -1;
 	}
@@ -762,12 +768,12 @@ int main(int argc, char *argv[])
 		 * up all cpus and timer expiration for the timer
 		 * acquisition). We assume these will be lost in the number
 		 * of other traces and could be negligible. */
-		if (idlestat_store(argv[optind]))
+		if (idlestat_store(options.filename))
 			return -1;
 	}
 
 	/* Load the idle states information */
-	datas = idlestat_load(argv[optind]);
+	datas = idlestat_load(options.filename);
 	if (!datas)
 		return 1;
 
