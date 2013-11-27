@@ -20,6 +20,7 @@
 
 static char irq_type_name[][8] = {
 			"irq",
+			"ipi",
 		};
 
 static char buffer[BUFSIZE];
@@ -320,6 +321,7 @@ static int store_irq(int cpu, int irqid, char *irqname,
 }
 
 #define TRACE_IRQ_FORMAT "%*[^[][%d] %*[^=]=%d%*[^=]=%16s"
+#define TRACE_IPIIRQ_FORMAT "%*[^[][%d] %*[^=]=%d%*[^=]=%16s"
 
 #define TRACE_CMD_FORMAT "%*[^]]] %lf:%*[^=]=%u%*[^=]=%d"
 #define TRACE_FORMAT "%*[^]]] %*s %lf:%*[^=]=%u%*[^=]=%d"
@@ -333,6 +335,13 @@ static int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer, int count)
 		sscanf(buffer, TRACE_IRQ_FORMAT, &cpu, &irqid, irqname);
 
 		store_irq(cpu, irqid, irqname, datas, count, HARD_IRQ);
+		return 0;
+	}
+
+	if (strstr(buffer, "ipi_handler_entry")) {
+		sscanf(buffer, TRACE_IPIIRQ_FORMAT, &cpu, &irqid, irqname);
+
+		store_irq(cpu, irqid, irqname, datas, count, IPI_IRQ);
 		return 0;
 	}
 

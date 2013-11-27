@@ -28,6 +28,7 @@ struct cpuidle_cstate {
 
 enum IRQ_TYPE {
 	HARD_IRQ = 0,
+	IPI_IRQ,
 	IRQ_TYPE_MAX
 };
 
