@@ -43,8 +43,12 @@ int idlestat_init_trace(unsigned int duration)
 	if (write_int(TRACE_EVENT_PATH, 0))
 		return -1;
 
-	/* Enable only cpu_idle traces */
+	/* Enable cpu_idle traces */
 	if (write_int(TRACE_CPUIDLE_EVENT_PATH, 1))
+		return -1;
+
+	/* Enable irq traces */
+	if (write_int(TRACE_IRQ_EVENT_PATH, 1))
 		return -1;
 
 	return 0;

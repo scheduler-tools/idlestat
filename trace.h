@@ -7,6 +7,7 @@
 #define TRACE_BUFFER_SIZE_PATH TRACE_PATH "/buffer_size_kb"
 #define TRACE_BUFFER_TOTAL_PATH TRACE_PATH "/buffer_total_size_kb"
 #define TRACE_CPUIDLE_EVENT_PATH TRACE_PATH "/events/power/cpu_idle/enable"
+#define TRACE_IRQ_EVENT_PATH TRACE_PATH "/events/irq/enable"
 #define TRACE_EVENT_PATH TRACE_PATH "/events/enable"
 #define TRACE_FREE TRACE_PATH "/free_buffer"
 #define TRACE_FILE TRACE_PATH "/trace"
