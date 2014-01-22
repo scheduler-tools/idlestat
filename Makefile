@@ -1,3 +1,11 @@
+#
+# Makefile
+#
+# Copyright (C) 2014 Zoran Markovic <zoran.markovic@linaro.org>
+#
+# This file is subject to the terms and conditions of the GNU General Public
+# License version 2.
+#
 CFLAGS?=-g -Wall
 CC?=gcc
 

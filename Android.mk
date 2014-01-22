@@ -1,3 +1,11 @@
+#
+# Android.mk
+#
+# Copyright (C) 2014 Zoran Markovic <zoran.markovic@linaro.org>
+#
+# This file is subject to the terms and conditions of the GNU General Public
+# License, version 2. 
+#
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
