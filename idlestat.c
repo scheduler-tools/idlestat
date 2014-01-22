@@ -16,7 +16,7 @@
 #include "list.h"
 #include "topology.h"
 
-#define IDLESTAT_VERSION "0.2"
+#define IDLESTAT_VERSION "0.3-rc1"
 
 static char irq_type_name[][8] = {
 			"irq",
@@ -524,14 +524,12 @@ struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
 
 static void help(const char *cmd)
 {
-	fprintf(stderr, "%s [-d/--dump] [-c/--cstate=x] <file>\n", basename(cmd));
-	exit(0);
+	fprintf(stderr, "%s [-d|--dump] [-c|--cstate=x] [-o|--output-file] <file>\n", basename(cmd));
 }
 
 static void version(const char *cmd)
 {
 	printf("%s version %s\n", basename(cmd), IDLESTAT_VERSION);
-	exit(0);
 }
 
 static struct option long_options[] = {
@@ -593,9 +591,11 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 			break;
 		case 'h':
 			help(argv[0]);
+			exit(0);
 			break;
 		case 'V':
 			version(argv[0]);
+			exit(0);
 			break;
 		case '?':
 			fprintf(stderr, "%s: Unknown option %c'.\n",
@@ -713,14 +713,14 @@ int main(int argc, char *argv[])
 	struct idledebug_options options;
 	struct rusage rusage;
 
+	if (getoptions(argc, argv, &options))
+		return 1;
+
 	/* We have to manipulate some files only accessible to root */
 	if (getuid()) {
 		fprintf(stderr, "must be root to run the tool\n");
 		return -1;
 	}
-
-	if (getoptions(argc, argv, &options))
-		return 1;
 
 	/* init cpu topoinfo */
 	init_cpu_topo_info();
