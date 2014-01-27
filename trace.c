@@ -43,14 +43,17 @@ int idlestat_init_trace(unsigned int duration)
 {
 	int bufsize;
 
-	/* Assuming the worst case where we can have
+	/* Assuming the worst case where we can have for cpuidle,
 	 * TRACE_IDLE_NRHITS_PER_SEC.  Each state enter/exit line are
-	 * 196 chars wide, so we have 2 x 196 x TRACE_IDLE_NRHITS_PER_SEC bytes.
-	 * divided by 2^10 to have Kb. We add 1Kb to be sure to round up.
+	 * 196 chars wide, so we have 2 x 196 x TRACE_IDLE_NRHITS_PER_SEC lines.
+	 * For cpufreq, assume a 196-character line for each frequency change,
+	 * and expect a rate of TRACE_CPUFREQ_NRHITS_PER_SEC. 
+	 * Divide by 2^10 to have Kb. We add 1Kb to be sure to round up.
 	*/
 
-	bufsize = 2 * TRACE_IDLE_LENGTH * TRACE_IDLE_NRHITS_PER_SEC * duration;
-	bufsize = (bufsize / (1 << 10)) + 1;
+	bufsize = 2 * TRACE_IDLE_LENGTH * TRACE_IDLE_NRHITS_PER_SEC;
+	bufsize += TRACE_CPUFREQ_LENGTH * TRACE_CPUFREQ_NRHITS_PER_SEC;
+	bufsize = (bufsize * duration / (1 << 10)) + 1;
 
 	if (write_int(TRACE_BUFFER_SIZE_PATH, bufsize))
 		return -1;
@@ -66,6 +69,10 @@ int idlestat_init_trace(unsigned int duration)
 
 	/* Enable cpu_idle traces */
 	if (write_int(TRACE_CPUIDLE_EVENT_PATH, 1))
+		return -1;
+
+	/* Enable cpu_frequency traces */
+	if (write_int(TRACE_CPUFREQ_EVENT_PATH, 1))
 		return -1;
 
 	/* Enable irq traces */

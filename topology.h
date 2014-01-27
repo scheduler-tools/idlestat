@@ -29,6 +29,7 @@ struct cpu_cpu {
 	struct list_head list_cpu;
 	int cpu_id;
 	struct cpuidle_cstates *cstates;
+	struct cpuidle_pstates *pstates;
 };
 
 struct cpu_core {
