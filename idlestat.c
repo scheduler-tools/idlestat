@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <sched.h>
 #include <string.h>
+#include <float.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/resource.h>
@@ -377,6 +378,104 @@ static int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer, int count)
 	return -1;
 }
 
+#define CPUFREQ_AVFREQ_PATH_FORMAT \
+	"/sys/devices/system/cpu/cpu%d/cpufreq/scaling_available_frequencies"
+
+/**
+ * release_pstate_info - free all P-state related structs
+ * @pstates: per-cpu array of P-state statistics structs
+ * @nrcpus: number of CPUs
+ */
+static void release_pstate_info(struct cpufreq_pstates *pstates, int nrcpus)
+{
+	int cpu;
+
+	if (!pstates)
+		/* already cleaned up */
+		return;
+
+	/* first check and clean per-cpu structs */
+	for (cpu = 0; cpu < nrcpus; cpu++)
+		if (pstates[cpu].pstate)
+			free(pstates[cpu].pstate);
+
+	/* now free the master cpufreq structs */
+	free(pstates);
+
+	return;
+}
+
+/**
+ * build_pstate_info - parse cpufreq sysfs entries and build per-CPU
+ * structs to maintain statistics of P-state transitions
+ * @nrcpus: number of CPUs
+ *
+ * Return: per-CPU array of structs (success) or NULL (error)
+ */
+static struct cpufreq_pstates *build_pstate_info(int nrcpus)
+{
+	int cpu;
+	struct cpufreq_pstates *pstates;
+
+	pstates = calloc(sizeof(*pstates), nrcpus);
+	if (!pstates)
+		return NULL;
+	memset(pstates, 0, sizeof(*pstates) * nrcpus);
+
+	for (cpu = 0; cpu < nrcpus; cpu++) {
+		struct cpufreq_pstate *pstate;
+		int nrfreq;
+		char *fpath, *freq, line[256];
+		FILE *sc_av_freq;
+
+		if (asprintf(&fpath, CPUFREQ_AVFREQ_PATH_FORMAT, cpu) < 0)
+			goto clean_exit;
+
+		/* read scaling_available_frequencies for the CPU */
+		sc_av_freq = fopen(fpath, "r");
+		free(fpath);
+		if (!sc_av_freq)
+			goto clean_exit;
+		freq = fgets(line, sizeof(line)/sizeof(line[0]), sc_av_freq);
+		fclose(sc_av_freq);
+		if (!freq)
+			goto clean_exit;
+
+		/* tokenize line and populate each frequency */
+		nrfreq = 0;
+		pstate = NULL;
+		while ((freq = strtok(freq, " \n")) != NULL) {
+			pstate = realloc(pstate, sizeof(*pstate) * (nrfreq+1));
+			if (!pstate)
+				goto clean_exit;
+
+			/* initialize pstate record */
+			pstate[nrfreq].id = nrfreq;
+			pstate[nrfreq].freq = atol(freq);
+			pstate[nrfreq].count = 0;
+			pstate[nrfreq].min_time = DBL_MAX;
+			pstate[nrfreq].max_time = 0.;
+			pstate[nrfreq].avg_time = 0.;
+			pstate[nrfreq].duration = 0.;
+			nrfreq++;
+			freq = NULL;
+		}
+
+		/* now populate cpufreq_pstates for this CPU */
+		pstates[cpu].pstate = pstate;
+		pstates[cpu].max = nrfreq;
+		pstates[cpu].current = -1;	/* unknown */
+		pstates[cpu].time_enter = 0.;
+		pstates[cpu].time_exit = 0.;
+	}
+
+	return pstates;
+
+clean_exit:
+	release_pstate_info(pstates, nrcpus);
+	return NULL;
+}
+
 
 static struct cpuidle_datas *idlestat_load(const char *path)
 {
@@ -417,6 +516,10 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 	/* initialize cstate_max for each cpu */
 	for (cpu = 0; cpu < nrcpus; cpu++)
 		datas->cstates[cpu].cstate_max = -1;
+
+	datas->pstates = build_pstate_info(nrcpus);
+	if (!datas->pstates)
+		return ptrerror("calloc pstate");
 
 	datas->nrcpus = nrcpus;
 
@@ -859,6 +962,7 @@ int main(int argc, char *argv[])
 		printf("max rss : %ld kB\n", rusage.ru_maxrss);
 	}
 
+	release_pstate_info(datas->pstates, datas->nrcpus);
 	release_cpu_topo_cstates();
 	release_cpu_topo_info();
 

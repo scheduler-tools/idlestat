@@ -25,6 +25,7 @@
 #define BUFSIZE 256
 #define NAMELEN 16
 #define MAXCSTATE 8
+#define MAXPSTATE 8
 #define MAX(A, B) (A > B ? A : B)
 #define MIN(A, B) (A < B ? A : B)
 #define AVG(A, B, I) ((A) + ((B - A) / (I)))
@@ -72,8 +73,27 @@ struct cpuidle_cstates {
 	struct wakeup_irq *wakeirq;
 };
 
+struct cpufreq_pstate {
+	int id;
+	unsigned int freq;
+	int count;
+	double min_time;
+	double max_time;
+	double avg_time;
+	double duration;
+};
+
+struct cpufreq_pstates {
+	struct cpufreq_pstate *pstate;
+	int current;
+	double time_enter;
+	double time_exit;
+	int max;
+};
+
 struct cpuidle_datas {
 	struct cpuidle_cstates *cstates;
+	struct cpufreq_pstates *pstates;
 	int nrcpus;
 };
 
