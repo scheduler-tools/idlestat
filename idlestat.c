@@ -237,6 +237,25 @@ static struct cpuidle_cstate *inter(struct cpuidle_cstate *c1,
 	return result;
 }
 
+static void show_pstate_info(struct cpufreq_pstates *pstates, int nrcpus)
+{
+	int f, cpu; 
+
+	for (cpu = 0; cpu < nrcpus; cpu++) {
+		struct cpufreq_pstates *ps = &(pstates[cpu]);
+		printf("P-state statistics for CPU%d\n", cpu);
+		for (f = 0; f < ps->max; f++) {
+			struct cpufreq_pstate *p = &(ps->pstate[f]);
+			printf("\t@%dMHz:\t %d runs, total %.2lfus, "
+				"avg %.2lfus, min %.2lfus, max %.2lfus\n",
+				p->freq/1000, p->count, p->duration,
+				p->avg_time, 
+				(p->min_time == DBL_MAX ? -1. : p->min_time),
+				p->max_time);
+		}
+	}
+}
+
 #define CPUFREQ_AVFREQ_PATH_FORMAT \
 	"/sys/devices/system/cpu/cpu%d/cpufreq/scaling_available_frequencies"
 
@@ -380,6 +399,7 @@ static void open_next_pstate(struct cpufreq_pstates *ps, int s, double time)
 	open_current_pstate(ps, time);
 }
 
+#define USEC_PER_SEC 1000000
 static void close_current_pstate(struct cpufreq_pstates *ps, double time)
 {
 	int c = ps->current;
@@ -390,7 +410,7 @@ static void close_current_pstate(struct cpufreq_pstates *ps, double time)
 		fprintf(stderr, "warning: closing P-state on idle CPU\n"); 
 		return;
 	}
-	elapsed = time - ps->time_enter;
+	elapsed = (time - ps->time_enter) * USEC_PER_SEC;
 	p->min_time = MIN(p->min_time, elapsed);
 	p->max_time = MAX(p->max_time, elapsed);
 	p->avg_time = AVG(p->avg_time, elapsed, p->count + 1);
@@ -1080,6 +1100,7 @@ int main(int argc, char *argv[])
 		free(cluster->cstates);
 		free(cluster);
 	}
+	show_pstate_info(datas->pstates, datas->nrcpus);
 
 	/* Computation could be heavy, let's give some information
 	 * about the memory consumption */
