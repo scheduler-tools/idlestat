@@ -240,7 +240,7 @@ static int store_data(double time, int state, int cpu,
 	int nrdata, last_cstate = cstates->last_cstate;
 
 	/* ignore when we got a "closing" state first */
-	if (state == -1 && !cstates->cstate_max)
+	if (state == -1 && cstates->cstate_max == -1)
 		return 0;
 
 	cstate = &cstates->cstate[state == -1 ? last_cstate : state ];
@@ -398,6 +398,9 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 	datas->cstates = calloc(sizeof(*datas->cstates), nrcpus);
 	if (!datas->cstates)
 		return ptrerror("calloc cstate");
+	/* initialize cstate_max for each cpu */
+	for (cpu = 0; cpu < nrcpus; cpu++)
+		datas->cstates[cpu].cstate_max = -1;
 
 	datas->nrcpus = nrcpus;
 
