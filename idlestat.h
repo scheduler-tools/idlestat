@@ -86,6 +86,7 @@ struct cpufreq_pstate {
 struct cpufreq_pstates {
 	struct cpufreq_pstate *pstate;
 	int current;
+	int idle;
 	double time_enter;
 	double time_exit;
 	int max;
