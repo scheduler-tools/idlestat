@@ -250,7 +250,7 @@ static void show_pstate_info(struct cpufreq_pstates *pstates, int nrcpus)
 				"avg %.2lfus, min %.2lfus, max %.2lfus\n",
 				p->freq/1000, p->count, p->duration,
 				p->avg_time, 
-				(p->min_time == DBL_MAX ? -1. : p->min_time),
+				(p->min_time == DBL_MAX ? 0. : p->min_time),
 				p->max_time);
 		}
 	}
