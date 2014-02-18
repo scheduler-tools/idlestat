@@ -29,7 +29,7 @@ struct cpu_cpu {
 	struct list_head list_cpu;
 	int cpu_id;
 	struct cpuidle_cstates *cstates;
-	struct cpuidle_pstates *pstates;
+	struct cpufreq_pstates *pstates;
 };
 
 struct cpu_core {
@@ -62,7 +62,8 @@ extern int output_cpu_topo_info(FILE *f);
 extern int establish_idledata_to_topo(struct cpuidle_datas *datas);
 extern int release_cpu_topo_cstates(void);
 extern int dump_cpu_topo_info(int state, int count,
-		int (*dump)(struct cpuidle_cstates *, int,  int, char *));
+		int (*dump)(struct cpuidle_cstates *, struct cpufreq_pstates *,
+			    int,  int, char *));
 
 
 extern struct cpuidle_cstates *core_cluster_data(struct cpu_core *s_core);

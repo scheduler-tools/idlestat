@@ -59,8 +59,9 @@ static inline void *ptrerror(const char *str)
 	return NULL;
 }
 
-static int dump_cstates(struct cpuidle_cstates *cstates, int state,
-			int count, char *str)
+static int dump_states(struct cpuidle_cstates *cstates,
+		       struct cpufreq_pstates *pstates,
+		       int state, int count, char *str)
 {
 	int j, k;
 	struct cpuidle_cstate *cstate;
@@ -84,36 +85,47 @@ static int dump_cstates(struct cpuidle_cstates *cstates, int state,
 	return 0;
 }
 
-static int display_cstates(struct cpuidle_cstates *cstates, int state,
-			int count, char *str)
+static int display_states(struct cpuidle_cstates *cstates,
+			  struct cpufreq_pstates *pstates,
+			  int state, int count, char *str)
 {
 	int j;
-	struct cpuidle_cstate *cstate;
-	struct wakeup_info *wakeinfo;
-	struct wakeup_irq *irqinfo;
 
+	printf("%s@state\thits\t      total(us)\t\tavg(us)\tmin(us)\t"
+	       "max(us)\n", str);
 	for (j = 0; j < cstates->cstate_max + 1; j++) {
+		struct cpuidle_cstate *c = &cstates->cstate[j];
 
 		if (state != -1 && state != j)
 			continue;
 
-		cstate = &cstates->cstate[j];
-
-		printf("%s", str);
-		printf("/state%d, %d hits, total %.2lfus," \
-		       "avg %.2lfus, min %.2lfus, max %.2lfus\n",
-		       j, cstate->nrdata, cstate->duration,
-		       cstate->avg_time, cstate->min_time,
-		       cstate->max_time);
+		printf("%*c %d\t%d\t%15.2lf\t%15.2lf\t%.2lf\t%.2lf\n",
+			strlen(str), 0x20,
+			j, c->nrdata, c->duration,
+			c->avg_time, 
+			(c->min_time == DBL_MAX ? 0. : c->min_time),
+			c->max_time);
+	}
+	if (pstates) {
+		for (j = 0; j < pstates->max; j++) {
+			struct cpufreq_pstate *p = &(pstates->pstate[j]);
+			printf("%*c %d\t%d\t%15.2lf\t%15.2lf\t%.2lf\t%.2lf\n",
+				strlen(str), 0x20,
+				p->freq/1000, p->count, p->duration,
+				p->avg_time, 
+				(p->min_time == DBL_MAX ? 0. : p->min_time),
+				p->max_time);
+		}
 	}
 
 	if (strstr(str, IRQ_WAKEUP_UNIT_NAME)) {
-		wakeinfo = &cstates->wakeinfo;
-		irqinfo = wakeinfo->irqinfo;
+		struct wakeup_info *wakeinfo = &cstates->wakeinfo;
+		struct wakeup_irq *irqinfo = wakeinfo->irqinfo;
+		printf("%s wakeups \tname \t\tcount\n", str);
 		for (j = 0; j < wakeinfo->nrdata; j++, irqinfo++) {
-			printf("\t%s", str);
-			printf("/%s id %d, name %s, wakeup count %d\n",
-				(irqinfo->irq_type < IRQ_TYPE_MAX) ? irq_type_name[irqinfo->irq_type] : "NULL",
+			printf("%*c %s%03d\t%-15.15s\t%d\n", strlen(str), 0x20,
+				(irqinfo->irq_type < IRQ_TYPE_MAX) ?
+				irq_type_name[irqinfo->irq_type] : "NULL",
 				irqinfo->id, irqinfo->name, irqinfo->count);
 		}
 	}
@@ -122,20 +134,23 @@ static int display_cstates(struct cpuidle_cstates *cstates, int state,
 }
 
 int dump_all_data(struct cpuidle_datas *datas, int state, int count,
-		int (*dump)(struct cpuidle_cstates *, int,  int, char *))
+		int (*dump)(struct cpuidle_cstates *,
+			    struct cpufreq_pstates *, int,  int, char *))
 {
 	int i = 0, nrcpus = datas->nrcpus;
 	struct cpuidle_cstates *cstates;
+	struct cpufreq_pstates *pstates;
 
 	do {
 		cstates = &datas->cstates[i];
+		pstates = &datas->pstates[i];
 
 		if (nrcpus == -1)
 			sprintf(buffer, "cluster");
 		else
 			sprintf(buffer, "cpu%d", i);
 
-		dump(cstates, state, count, buffer);
+		dump(cstates, pstates, state, count, buffer);
 
 		i++;
 
@@ -203,8 +218,7 @@ static struct cpuidle_cstate *inter(struct cpuidle_cstate *c1,
 			if (!interval)
 				continue;
 
-			result->min_time = MIN(!result->nrdata ? 999999.0 :
-					       result->min_time,
+			result->min_time = MIN(result->min_time,
 					       interval->duration);
 
 			result->max_time = MAX(result->max_time,
@@ -237,23 +251,58 @@ static struct cpuidle_cstate *inter(struct cpuidle_cstate *c1,
 	return result;
 }
 
-static void show_pstate_info(struct cpufreq_pstates *pstates, int nrcpus)
-{
-	int f, cpu; 
+#define CPUIDLE_STATENAME_PATH_FORMAT \
+	"/sys/devices/system/cpu/cpu%d/cpuidle/state%d/name"
 
+/**
+ * release_cstate_info - free all C-state related structs
+ * @cstates: per-cpu array of C-state statistics structs
+ * @nrcpus: number of CPUs
+ */
+static void release_cstate_info(struct cpuidle_cstates *cstates, int nrcpus)
+{
+	if (!cstates)
+		/* already cleaned up */
+		return;
+
+	/* just free the cstates array for now */
+	free(cstates);
+}
+
+/**
+ * build_cstate_info - parse cpuidle sysfs entries and build per-CPU
+ * structs to maintain statistics of C-state transitions
+ * @nrcpus: number of CPUs
+ *
+ * Return: per-CPU array of structs (success) or NULL (error)
+ */
+static struct cpuidle_cstates *build_cstate_info(int nrcpus)
+{
+	int cpu;
+	struct cpuidle_cstates *cstates;
+
+	cstates = calloc(nrcpus, sizeof(*cstates));
+	if (!cstates) 
+		return NULL;
+	memset(cstates, 0, sizeof(*cstates) * nrcpus);
+
+	/* initialize cstate_max for each cpu */
 	for (cpu = 0; cpu < nrcpus; cpu++) {
-		struct cpufreq_pstates *ps = &(pstates[cpu]);
-		printf("P-state statistics for CPU%d\n", cpu);
-		for (f = 0; f < ps->max; f++) {
-			struct cpufreq_pstate *p = &(ps->pstate[f]);
-			printf("\t@%dMHz:\t %d runs, total %.2lfus, "
-				"avg %.2lfus, min %.2lfus, max %.2lfus\n",
-				p->freq/1000, p->count, p->duration,
-				p->avg_time, 
-				(p->min_time == DBL_MAX ? 0. : p->min_time),
-				p->max_time);
+		int i;
+		struct cpuidle_cstate *c;
+		cstates[cpu].cstate_max = -1;
+		cstates[cpu].last_cstate = -1;
+		for (i = 0; i < MAXCSTATE; i++) {
+			c = &(cstates[cpu].cstate[i]);
+			c->data = NULL;
+			c->nrdata = 0;
+			c->avg_time = 0.;
+			c->max_time = 0.;
+			c->min_time = DBL_MAX;
+			c->duration = 0.;
 		}
 	}
+	return cstates;
 }
 
 #define CPUFREQ_AVFREQ_PATH_FORMAT \
@@ -506,8 +555,7 @@ static int store_data(double time, int state, int cpu,
 		/* convert to us */
 		data->duration *= 1000000;
 
-		cstate->min_time = MIN(!nrdata ? 999999.0 : cstate->min_time,
-				       data->duration);
+		cstate->min_time = MIN(cstate->min_time, data->duration);
 
 		cstate->max_time = MAX(cstate->max_time, data->duration);
 
@@ -648,16 +696,12 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 		return ptrerror("malloc datas");
 	}
 
-	datas->cstates = calloc(sizeof(*datas->cstates), nrcpus);
+	datas->cstates = build_cstate_info(nrcpus);
 	if (!datas->cstates) {
 		free(datas);
 		fclose(f);
 		return ptrerror("calloc cstate");
 	}
-
-	/* initialize cstate_max for each cpu */
-	for (cpu = 0; cpu < nrcpus; cpu++)
-		datas->cstates[cpu].cstate_max = -1;
 
 	datas->pstates = build_pstate_info(nrcpus);
 	if (!datas->pstates)
@@ -1038,7 +1082,6 @@ int main(int argc, char *argv[])
 		/* Start the recording */
 		if (idlestat_trace_enable(true))
 			return -1;
-
 		/* We want to prevent to begin the acquisition with a cpu in
 		 * idle state because we won't be able later to close the
 		 * state and to determine which state it was. */
@@ -1076,10 +1119,10 @@ int main(int argc, char *argv[])
 	if (0 == establish_idledata_to_topo(datas)) {
 		if (options.dump > 0)
 			dump_cpu_topo_info(options.cstate, options.iterations,
-						dump_cstates);
+					   dump_states);
 		else
 			dump_cpu_topo_info(options.cstate, options.iterations,
-						display_cstates);
+					   display_states);
 	} else {
 		cluster = cluster_data(datas);
 		if (!cluster)
@@ -1087,20 +1130,19 @@ int main(int argc, char *argv[])
 
 		if (options.dump > 0) {
 			dump_all_data(datas, options.cstate,
-					options.iterations, dump_cstates);
+				      options.iterations, dump_states);
 			dump_all_data(cluster, options.cstate,
-					options.iterations, dump_cstates);
+				      options.iterations, dump_states);
 		} else {
 			dump_all_data(datas, options.cstate,
-					options.iterations, display_cstates);
+				      options.iterations, display_states);
 			dump_all_data(cluster, options.cstate,
-					options.iterations, display_cstates);
+				      options.iterations, display_states);
 		}
 
 		free(cluster->cstates);
 		free(cluster);
 	}
-	show_pstate_info(datas->pstates, datas->nrcpus);
 
 	/* Computation could be heavy, let's give some information
 	 * about the memory consumption */
@@ -1109,9 +1151,11 @@ int main(int argc, char *argv[])
 		printf("max rss : %ld kB\n", rusage.ru_maxrss);
 	}
 
-	release_pstate_info(datas->pstates, datas->nrcpus);
 	release_cpu_topo_cstates();
 	release_cpu_topo_info();
+	release_pstate_info(datas->pstates, datas->nrcpus);
+	release_cstate_info(datas->cstates, datas->nrcpus);
+	free(datas);
 
 	return 0;
 }
