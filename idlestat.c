@@ -188,6 +188,7 @@ static struct cpuidle_cstate *inter(struct cpuidle_cstate *c1,
 	for (i = 0, index = 0; i < c1->nrdata; i++) {
 
 		for (j = index; j < c2->nrdata; j++) {
+			struct cpuidle_data *tmp;
 
 			/* intervals are ordered, no need to go further */
 			if (c1->data[i].end < c2->data[j].begin)
@@ -216,10 +217,13 @@ static struct cpuidle_cstate *inter(struct cpuidle_cstate *c1,
 
 			result->nrdata++;
 
-			data = realloc(data, sizeof(*data) *
+			tmp = realloc(data, sizeof(*data) *
 				       (result->nrdata + 1));
-			if (!data)
+			if (!tmp) {
+				free(data);
 				return NULL;
+			}
+			data = tmp;
 
 			result->data = data;
 			result->data[result->nrdata - 1] = *interval;
@@ -236,7 +240,7 @@ static int store_data(double time, int state, int cpu,
 {
 	struct cpuidle_cstates *cstates = &datas->cstates[cpu];
 	struct cpuidle_cstate *cstate;
-	struct cpuidle_data *data;
+	struct cpuidle_data *data, *tmp;
 	int nrdata, last_cstate = cstates->last_cstate;
 
 	/* ignore when we got a "closing" state first */
@@ -280,9 +284,12 @@ static int store_data(double time, int state, int cpu,
 		return 0;
 	}
 
-	data = realloc(data, sizeof(*data) * (nrdata + 1));
-	if (!data)
+	tmp = realloc(data, sizeof(*data) * (nrdata + 1));
+	if (!tmp) {
+		free(data);
 		return error("realloc data");;
+	}
+	data = tmp;
 
 	data[nrdata].begin = time;
 
