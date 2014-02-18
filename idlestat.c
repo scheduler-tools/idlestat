@@ -221,6 +221,7 @@ static struct cpuidle_cstate *inter(struct cpuidle_cstate *c1,
 				       (result->nrdata + 1));
 			if (!tmp) {
 				free(data);
+				free(result);
 				return NULL;
 			}
 			data = tmp;
