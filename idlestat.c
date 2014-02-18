@@ -447,7 +447,7 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 
 	fclose(f);
 
-	fprintf(stderr, "Log is %lf secs long with %d events\n",
+	fprintf(stderr, "Log is %lf secs long with %zd events\n",
 		end - begin, (int)count);
 
 	return datas;
