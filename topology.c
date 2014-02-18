@@ -128,7 +128,7 @@ int add_topo_info(struct cpu_topology *topo_list, struct topology_info *info)
 	ptr = check_exist_from_head(&s_core->cpu_head, info->cpu_id);
 	if (!ptr) {
 		s_cpu = calloc(sizeof(struct cpu_cpu), 1);
-		if (!s_core)
+		if (!s_cpu)
 			return -1;
 
 		s_cpu->cpu_id = info->cpu_id;
