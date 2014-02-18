@@ -659,7 +659,7 @@ static int idlestat_file_for_each_line(const char *path, void *data,
 	f = fopen(path, "r");
 
 	if (!f) {
-		fprintf(f, "failed to open '%s': %m\n", path);
+		fprintf(stderr, "failed to open '%s': %m\n", path);
 		return -1;
 	}
 
