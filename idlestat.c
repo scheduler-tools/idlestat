@@ -396,16 +396,24 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 		sscanf(buffer, "cpus=%u", &nrcpus);
 	}
 
-	if (!nrcpus)
+	if (!nrcpus) {
+		fclose(f);
 		return ptrerror("read error for 'cpus=' in trace file");
+	}
 
 	datas = malloc(sizeof(*datas));
-	if (!datas)
+	if (!datas) {
+		fclose(f);
 		return ptrerror("malloc datas");
+	}
 
 	datas->cstates = calloc(sizeof(*datas->cstates), nrcpus);
-	if (!datas->cstates)
+	if (!datas->cstates) {
+		free(datas);
+		fclose(f);
 		return ptrerror("calloc cstate");
+	}
+
 	/* initialize cstate_max for each cpu */
 	for (cpu = 0; cpu < nrcpus; cpu++)
 		datas->cstates[cpu].cstate_max = -1;
