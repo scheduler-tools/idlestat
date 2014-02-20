@@ -799,6 +799,10 @@ int main(int argc, char *argv[])
 		/* Do nothing */
 		sleep(options.duration);
 
+		/* Wake up all cpus again to account for last idle state */
+		if (idlestat_wake_all())
+			return -1;
+
 		/* Stop tracing */
 		if (idlestat_trace_enable(false))
 			return -1;
