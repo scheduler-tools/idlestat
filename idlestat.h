@@ -44,6 +44,7 @@ struct cpuidle_data {
 };
 
 struct cpuidle_cstate {
+	char *name;
 	struct cpuidle_data *data;
 	int nrdata;
 	double avg_time;

@@ -104,9 +104,9 @@ static int display_states(struct cpuidle_cstates *cstates,
 		if (state != -1 && state != j)
 			continue;
 
-		printf("%*c %d\t%d\t%15.2lf\t%15.2lf\t%.2lf\t%.2lf\n",
+		printf("%*c %s\t%d\t%15.2lf\t%15.2lf\t%.2lf\t%.2lf\n",
 			strlen(str), 0x20,
-			j, c->nrdata, c->duration,
+			c->name, c->nrdata, c->duration,
 			c->avg_time, 
 			(c->min_time == DBL_MAX ? 0. : c->min_time),
 			c->max_time);
@@ -259,6 +259,37 @@ static struct cpuidle_cstate *inter(struct cpuidle_cstate *c1,
 #define CPUIDLE_STATENAME_PATH_FORMAT \
 	"/sys/devices/system/cpu/cpu%d/cpuidle/state%d/name"
 
+static char *cpuidle_cstate_name(int cpu, int state)
+{
+	char *fpath, *name;
+	FILE *snf;
+	char line[256];
+
+	if (asprintf(&fpath, CPUIDLE_STATENAME_PATH_FORMAT, cpu, state) < 0)
+		return NULL;
+
+	/* read cpuidle state name for the CPU */
+	snf = fopen(fpath, "r");
+	if (!snf) {
+		free(fpath);
+		return NULL;
+	}
+
+	name = fgets(line, sizeof(line)/sizeof(line[0]), snf);
+	if (!name)
+		goto free_exit;
+
+	/* get rid of trailing characters and duplicate string */
+	name = strtok(name, " \n");
+	name = strdup(name);
+
+free_exit:
+	fclose(snf);
+	free(fpath);
+	return name;
+}
+
+
 /**
  * release_cstate_info - free all C-state related structs
  * @cstates: per-cpu array of C-state statistics structs
@@ -266,11 +297,22 @@ static struct cpuidle_cstate *inter(struct cpuidle_cstate *c1,
  */
 static void release_cstate_info(struct cpuidle_cstates *cstates, int nrcpus)
 {
+	int cpu, i;
+
 	if (!cstates)
 		/* already cleaned up */
 		return;
 
-	/* just free the cstates array for now */
+	/* free C-state names */
+	for (cpu = 0; cpu < nrcpus; cpu++) {
+		for (i = 0; i < MAXCSTATE; i++) {
+			struct cpuidle_cstate *c = &(cstates[cpu].cstate[i]);
+			if (c->name)
+				free(c->name);
+		}
+	}
+
+	/* free the cstates array */
 	free(cstates);
 }
 
@@ -299,6 +341,7 @@ static struct cpuidle_cstates *build_cstate_info(int nrcpus)
 		cstates[cpu].last_cstate = -1;
 		for (i = 0; i < MAXCSTATE; i++) {
 			c = &(cstates[cpu].cstate[i]);
+			c->name = cpuidle_cstate_name(cpu, i);
 			c->data = NULL;
 			c->nrdata = 0;
 			c->avg_time = 0.;
@@ -784,6 +827,9 @@ struct cpuidle_datas *cluster_data(struct cpuidle_datas *datas)
 				continue;
 		}
 
+		/* copy state names from the first cpu */
+		cstates->name = strdup(datas->cstates[0].cstate[i].name);
+
 		result->cstates[0].cstate[i] = *cstates;
 	}
 
@@ -820,6 +866,10 @@ struct cpuidle_cstates *core_cluster_data(struct cpu_core *s_core)
 			if (!cstates)
 				continue;
 		}
+		/* copy state name from first cpu */
+		s_cpu = list_first_entry(&s_core->cpu_head, struct cpu_cpu, 
+				list_cpu);
+		cstates->name = strdup(s_cpu->cstates->cstate[i].name);
 
 		result->cstate[i] = *cstates;
 	}
@@ -853,6 +903,10 @@ struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
 			if (!cstates)
 				continue;
 		}
+		/* copy state name from first core */
+		s_core = list_first_entry(&s_phy->core_head, struct cpu_core, 
+				list_core);
+		cstates->name = strdup(s_core->cstates->cstate[i].name);
 
 		result->cstate[i] = *cstates;
 	}
