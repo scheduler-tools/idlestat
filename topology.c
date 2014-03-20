@@ -1,10 +1,7 @@
 /*
  *  topology.c
  *
- *  Copyright (C) 2014  Zoran Markovic <zoran.markovic@linaro.org>
- *
- *  Contributors:
- *     Shaojie Sun <shaojie.sun@linaro.org> (Hislicon technologies)
+ *  Copyright (C) 2014, Linaro Limited.
  *
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *  This program is free software; you can redistribute it and/or modify
@@ -21,6 +18,11 @@
  *  59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
  *
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *
+ * Contributors:
+ *     Daniel Lezcano <daniel.lezcano@linaro.org>
+ *     Zoran Markovic <zoran.markovic@linaro.org>
+ *
  */
 #define  _GNU_SOURCE
 
