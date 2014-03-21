@@ -36,6 +36,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/resource.h>
+#include <assert.h>
 
 #include "idlestat.h"
 #include "utils.h"
@@ -105,9 +106,9 @@ static int display_states(struct cpuidle_cstates *cstates,
 			continue;
 
 		printf("%*c %s\t%d\t%15.2lf\t%15.2lf\t%.2lf\t%.2lf\n",
-			strlen(str), 0x20,
+			(int)strlen(str), ' ',
 			c->name, c->nrdata, c->duration,
-			c->avg_time, 
+			c->avg_time,
 			(c->min_time == DBL_MAX ? 0. : c->min_time),
 			c->max_time);
 	}
@@ -115,9 +116,9 @@ static int display_states(struct cpuidle_cstates *cstates,
 		for (j = 0; j < pstates->max; j++) {
 			struct cpufreq_pstate *p = &(pstates->pstate[j]);
 			printf("%*c %d\t%d\t%15.2lf\t%15.2lf\t%.2lf\t%.2lf\n",
-				strlen(str), 0x20,
+				(int)strlen(str), ' ',
 				p->freq/1000, p->count, p->duration,
-				p->avg_time, 
+				p->avg_time,
 				(p->min_time == DBL_MAX ? 0. : p->min_time),
 				p->max_time);
 		}
@@ -128,7 +129,8 @@ static int display_states(struct cpuidle_cstates *cstates,
 		struct wakeup_irq *irqinfo = wakeinfo->irqinfo;
 		printf("%s wakeups \tname \t\tcount\n", str);
 		for (j = 0; j < wakeinfo->nrdata; j++, irqinfo++) {
-			printf("%*c %s%03d\t%-15.15s\t%d\n", strlen(str), 0x20,
+			printf("%*c %s%03d\t%-15.15s\t%d\n", (int)strlen(str),
+				' ',
 				(irqinfo->irq_type < IRQ_TYPE_MAX) ?
 				irq_type_name[irqinfo->irq_type] : "NULL",
 				irqinfo->id, irqinfo->name, irqinfo->count);
@@ -280,7 +282,7 @@ static char *cpuidle_cstate_name(int cpu, int state)
 		goto free_exit;
 
 	/* get rid of trailing characters and duplicate string */
-	name = strtok(name, " \n");
+	name = strtok(name, "\n ");
 	name = strdup(name);
 
 free_exit:
@@ -329,7 +331,7 @@ static struct cpuidle_cstates *build_cstate_info(int nrcpus)
 	struct cpuidle_cstates *cstates;
 
 	cstates = calloc(nrcpus, sizeof(*cstates));
-	if (!cstates) 
+	if (!cstates)
 		return NULL;
 	memset(cstates, 0, sizeof(*cstates) * nrcpus);
 
@@ -419,7 +421,7 @@ static struct cpufreq_pstates *build_pstate_info(int nrcpus)
 		/* tokenize line and populate each frequency */
 		nrfreq = 0;
 		pstate = NULL;
-		while ((freq = strtok(freq, " \n")) != NULL) {
+		while ((freq = strtok(freq, "\n ")) != NULL) {
 			pstate = realloc(pstate, sizeof(*pstate) * (nrfreq+1));
 			if (!pstate)
 				goto clean_exit;
@@ -453,7 +455,7 @@ clean_exit:
 }
 
 static int get_current_pstate(struct cpuidle_datas *datas, int cpu,
-				struct cpufreq_pstates **pstates, 
+				struct cpufreq_pstates **pstates,
 				struct cpufreq_pstate **pstate)
 {
 	struct cpufreq_pstates *ps;
@@ -475,10 +477,11 @@ static int freq_to_pstate_index(struct cpufreq_pstates *ps, int freq)
 	int i;
 
 	/* find frequency in table of P-states */
-	for (i = 0; i < ps->max && freq != ps->pstate[i].freq; i++);
+	for (i = 0; i < ps->max && freq != ps->pstate[i].freq; i++)
+		/* just search */;
 
 	/* if not found, return -1 */
-	return (i >= ps->max ? -1 : ps->pstate[i].id);
+	return i >= ps->max ? -1 : ps->pstate[i].id;
 }
 
 static void open_current_pstate(struct cpufreq_pstates *ps, double time)
@@ -490,7 +493,7 @@ static void open_next_pstate(struct cpufreq_pstates *ps, int s, double time)
 {
 	ps->current = s;
 	if (ps->idle) {
-		fprintf(stderr, "warning: opening P-state on idle CPU\n"); 
+		fprintf(stderr, "warning: opening P-state on idle CPU\n");
 		return;
 	}
 	open_current_pstate(ps, time);
@@ -504,7 +507,7 @@ static void close_current_pstate(struct cpufreq_pstates *ps, double time)
 	double elapsed;
 
 	if (ps->idle) {
-		fprintf(stderr, "warning: closing P-state on idle CPU\n"); 
+		fprintf(stderr, "warning: closing P-state on idle CPU\n");
 		return;
 	}
 	elapsed = (time - ps->time_enter) * USEC_PER_SEC;
@@ -515,8 +518,8 @@ static void close_current_pstate(struct cpufreq_pstates *ps, double time)
 	p->count++;
 }
 
-static void cpu_change_pstate(struct cpuidle_datas *datas, int cpu, 
-				int freq, double time)
+static void cpu_change_pstate(struct cpuidle_datas *datas, int cpu,
+			      int freq, double time)
 {
 	struct cpufreq_pstates *ps;
 	struct cpufreq_pstate *p;
@@ -527,7 +530,7 @@ static void cpu_change_pstate(struct cpuidle_datas *datas, int cpu,
 
 	switch (cur) {
 	case 1:
-		/* if CPU is idle, update current state and leave 
+		/* if CPU is idle, update current state and leave
 		 * stats unchanged
 		 */
 		ps->current = next;
@@ -547,8 +550,8 @@ static void cpu_change_pstate(struct cpuidle_datas *datas, int cpu,
 		open_next_pstate(ps, next, time);
 		return;
 
-	default: 
-		fprintf(stderr, "illegal pstate %d for cpu %d, exiting.\n", 
+	default:
+		fprintf(stderr, "illegal pstate %d for cpu %d, exiting.\n",
 			cur, cpu);
 		exit(-1);
 	}
@@ -562,7 +565,8 @@ static void cpu_pstate_idle(struct cpuidle_datas *datas, int cpu, double time)
 	ps->idle = 1;
 }
 
-static void cpu_pstate_running(struct cpuidle_datas *datas, int cpu, double time)
+static void cpu_pstate_running(struct cpuidle_datas *datas, int cpu,
+			       double time)
 {
 	struct cpufreq_pstates *ps = &(datas->pstates[cpu]);
 	ps->idle = 0;
@@ -582,7 +586,7 @@ static int store_data(double time, int state, int cpu,
 	if (state == -1 && cstates->cstate_max == -1)
 		return 0;
 
-	cstate = &cstates->cstate[state == -1 ? last_cstate : state ];
+	cstate = &cstates->cstate[state == -1 ? last_cstate : state];
 	data = cstate->data;
 	nrdata = cstate->nrdata;
 
@@ -625,7 +629,7 @@ static int store_data(double time, int state, int cpu,
 	tmp = realloc(data, sizeof(*data) * (nrdata + 1));
 	if (!tmp) {
 		free(data);
-		return error("realloc data");;
+		return error("realloc data");
 	}
 	data = tmp;
 
@@ -699,14 +703,16 @@ static int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer, int count)
 	char irqname[NAMELEN+1];
 
 	if (strstr(buffer, "irq_handler_entry")) {
-		sscanf(buffer, TRACE_IRQ_FORMAT, &cpu, &irqid, irqname);
+		assert(sscanf(buffer, TRACE_IRQ_FORMAT, &cpu, &irqid,
+			      irqname) == 3);
 
 		store_irq(cpu, irqid, irqname, datas, count, HARD_IRQ);
 		return 0;
 	}
 
 	if (strstr(buffer, "ipi_handler_entry")) {
-		sscanf(buffer, TRACE_IPIIRQ_FORMAT, &cpu, &irqid, irqname);
+		assert(sscanf(buffer, TRACE_IPIIRQ_FORMAT, &cpu, &irqid,
+			      irqname) == 3);
 
 		store_irq(cpu, irqid, irqname, datas, count, IPI_IRQ);
 		return 0;
@@ -718,7 +724,7 @@ static int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer, int count)
 static struct cpuidle_datas *idlestat_load(const char *path)
 {
 	FILE *f;
-	unsigned int state = 0, freq = 0, cpu = 0, nrcpus= 0;
+	unsigned int state = 0, freq = 0, cpu = 0, nrcpus = 0;
 	double time, begin = 0, end = 0;
 	size_t count, start = 1;
 	struct cpuidle_datas *datas;
@@ -728,10 +734,11 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 	if (!f)
 		return ptrerror("fopen");
 
-	for (count = 0; count < 2; count++) {
-		fgets(buffer, BUFSIZE, f);
-		sscanf(buffer, "cpus=%u", &nrcpus);
-	}
+	/* version line */
+	fgets(buffer, BUFSIZE, f);
+
+	fgets(buffer, BUFSIZE, f);
+	assert(sscanf(buffer, "cpus=%u", &nrcpus) == 1);
 
 	if (!nrcpus) {
 		fclose(f);
@@ -764,7 +771,8 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 
 	do {
 		if (strstr(buffer, "cpu_idle")) {
-			sscanf(buffer, TRACE_FORMAT, &time, &state, &cpu);
+			assert(sscanf(buffer, TRACE_FORMAT, &time, &state,
+				      &cpu) == 3);
 
 			if (start) {
 				begin = time;
@@ -776,7 +784,8 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 			count++;
 			continue;
 		} else if (strstr(buffer, "cpu_frequency")) {
-			sscanf(buffer, TRACE_FORMAT, &time, &freq, &cpu);
+			assert(sscanf(buffer, TRACE_FORMAT, &time, &freq,
+				      &cpu) == 3);
 			cpu_change_pstate(datas, cpu, freq, time);
 			continue;
 		}
@@ -789,7 +798,7 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 	fclose(f);
 
 	fprintf(stderr, "Log is %lf secs long with %zd events\n",
-		end - begin, (int)count);
+		end - begin, count);
 
 	return datas;
 }
@@ -867,7 +876,7 @@ struct cpuidle_cstates *core_cluster_data(struct cpu_core *s_core)
 				continue;
 		}
 		/* copy state name from first cpu */
-		s_cpu = list_first_entry(&s_core->cpu_head, struct cpu_cpu, 
+		s_cpu = list_first_entry(&s_core->cpu_head, struct cpu_cpu,
 				list_cpu);
 		cstates->name = strdup(s_cpu->cstates->cstate[i].name);
 
@@ -904,7 +913,7 @@ struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
 				continue;
 		}
 		/* copy state name from first core */
-		s_core = list_first_entry(&s_phy->core_head, struct cpu_core, 
+		s_core = list_first_entry(&s_phy->core_head, struct cpu_core,
 				list_core);
 		cstates->name = strdup(s_core->cstates->cstate[i].name);
 
@@ -916,7 +925,9 @@ struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
 
 static void help(const char *cmd)
 {
-	fprintf(stderr, "%s [-d|--dump] [-c|--cstate=x] [-o|--output-file] <file>\n", basename(cmd));
+	fprintf(stderr,
+		"%s [-d|--dump] [-c|--cstate=x] [-o|--output-file] <file>\n",
+		basename(cmd));
 }
 
 static void version(const char *cmd)
@@ -992,20 +1003,19 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 		case '?':
 			fprintf(stderr, "%s: Unknown option %c'.\n",
 				argv[0], optopt);
+			/* fall through */
 		default:
 			return -1;
 		}
 	}
 
 	if (options->cstate >= MAXCSTATE) {
-		fprintf(stderr, "C-state must be less than %d\n",
-			MAXCSTATE);
+		fprintf(stderr, "C-state must be less than %d\n", MAXCSTATE);
 		return -1;
 	}
 
-	if (options->iterations < 0) {
+	if (options->iterations < 0)
 		fprintf(stderr, "dump values must be a positive value\n");
-	}
 
 	if (NULL == options->filename) {
 		fprintf(stderr, "expected filename\n");

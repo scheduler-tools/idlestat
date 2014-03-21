@@ -72,6 +72,7 @@ extern int dump_cpu_topo_info(int state, int count,
 
 
 extern struct cpuidle_cstates *core_cluster_data(struct cpu_core *s_core);
-extern struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy);
+extern struct cpuidle_cstates *
+	physical_cluster_data(struct cpu_physical *s_phy);
 
 #endif

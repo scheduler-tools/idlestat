@@ -52,7 +52,7 @@ int idlestat_init_trace(unsigned int duration)
 	 * TRACE_IDLE_NRHITS_PER_SEC.  Each state enter/exit line are
 	 * 196 chars wide, so we have 2 x 196 x TRACE_IDLE_NRHITS_PER_SEC lines.
 	 * For cpufreq, assume a 196-character line for each frequency change,
-	 * and expect a rate of TRACE_CPUFREQ_NRHITS_PER_SEC. 
+	 * and expect a rate of TRACE_CPUFREQ_NRHITS_PER_SEC.
 	 * Divide by 2^10 to have Kb. We add 1Kb to be sure to round up.
 	*/
 

@@ -34,6 +34,7 @@
 #include <dirent.h>
 #include <ctype.h>
 #include <sys/stat.h>
+#include <assert.h>
 
 #include "list.h"
 #include "utils.h"
@@ -309,11 +310,12 @@ static int topo_folder_scan(char *path, folder_filter_t filter)
 				continue;
 
 			read_topology_cb(newpath, &cpu_info);
-			sscanf(direntp->d_name, "cpu%d", &cpu_info.cpu_id);
+			assert(sscanf(direntp->d_name, "cpu%d",
+				      &cpu_info.cpu_id) == 1);
 			add_topo_info(&g_cpu_topo_list, &cpu_info);
 		}
 
-	out_free_newpath:
+out_free_newpath:
 		free(newpath);
 
 		if (ret)
@@ -374,10 +376,12 @@ int read_cpu_topo_info(FILE *f, char *buf)
 
 			do {
 				if (!is_ht) {
-					ret = sscanf(buf, "\tcpu%u", &cpu_info.cpu_id);
+					ret = sscanf(buf, "\tcpu%u",
+						     &cpu_info.cpu_id);
 					cpu_info.core_id = cpu_info.cpu_id;
 				} else {
-					ret = sscanf(buf, "\t\tcpu%u", &cpu_info.cpu_id);
+					ret = sscanf(buf, "\t\tcpu%u",
+						     &cpu_info.cpu_id);
 				}
 
 				if (!ret)
@@ -430,11 +434,13 @@ int establish_idledata_to_topo(struct cpuidle_datas *datas)
 	if (!has_topo)
 		return -1;
 
-	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head, list_physical)
+	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head,
+			    list_physical)
 		list_for_each_entry(s_core, &s_phy->core_head, list_core)
 			s_core->cstates = core_cluster_data(s_core);
 
-	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head, list_physical)
+	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head,
+			    list_physical)
 		s_phy->cstates = physical_cluster_data(s_phy);
 
 	return 0;
@@ -450,7 +456,8 @@ int dump_cpu_topo_info(int state, int count,
 	char   tmp[30];
 	int    tab = 0;
 
-	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head, list_physical) {
+	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head,
+			    list_physical) {
 		sprintf(tmp, "cluster%c", s_phy->physical_id + 'A');
 		dump(s_phy->cstates, NULL, state, count, tmp);
 
@@ -464,8 +471,10 @@ int dump_cpu_topo_info(int state, int count,
 				tab = 0;
 			}
 
-			list_for_each_entry(s_cpu, &s_core->cpu_head, list_cpu) {
-				sprintf(tmp, "%*ccpu%d", (tab + 1) * 2, 0x20, s_cpu->cpu_id);
+			list_for_each_entry(s_cpu, &s_core->cpu_head,
+					    list_cpu) {
+				sprintf(tmp, "%*ccpu%d", (tab + 1) * 2, 0x20,
+					s_cpu->cpu_id);
 				dump(s_cpu->cstates, s_cpu->pstates, state,
 				     count, tmp);
 			}
@@ -480,7 +489,8 @@ int release_cpu_topo_cstates(void)
 	struct cpu_physical *s_phy;
 	struct cpu_core     *s_core;
 
-	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head, list_physical) {
+	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head,
+			    list_physical) {
 		free(s_phy->cstates);
 		s_phy->cstates = NULL;
 		list_for_each_entry(s_core, &s_phy->core_head, list_core)
