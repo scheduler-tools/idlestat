@@ -36,6 +36,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/resource.h>
+#include <sys/wait.h>
 #include <assert.h>
 
 #include "idlestat.h"
@@ -112,6 +113,7 @@ static int display_states(struct cpuidle_cstates *cstates,
 			(c->min_time == DBL_MAX ? 0. : c->min_time),
 			c->max_time);
 	}
+
 	if (pstates) {
 		for (j = 0; j < pstates->max; j++) {
 			struct cpufreq_pstate *p = &(pstates->pstate[j]);
@@ -1028,7 +1030,7 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 		return -1;
 	}
 
-	return 0;
+	return optind;
 }
 
 static int idlestat_file_for_each_line(const char *path, void *data,
@@ -1114,14 +1116,47 @@ static int idlestat_wake_all(void)
 	return 0;
 }
 
-int main(int argc, char *argv[])
+static int execute(int argc, char *argv[], char *const envp[],
+		   struct idledebug_options *options)
+{
+	pid_t pid;
+	int status;
+
+	/* Nothing to execute, just wait an amount of time */
+	if (!argc)
+		return sleep(options->duration);
+
+	pid = fork();
+	if (pid < 0) {
+		perror("fork");
+		return -1;
+	}
+
+	if (pid == 0 && execve(argv[0], argv, envp)) {
+		perror("execv");
+		exit(1);
+	}
+
+	if (pid) {
+		waitpid(pid, &status, 0);
+
+		if (WIFEXITED(status) && !WEXITSTATUS(status))
+			return 0;
+	}
+
+	return -1;
+}
+
+int main(int argc, char *argv[], char *const envp[])
 {
 	struct cpuidle_datas *datas;
 	struct cpuidle_datas *cluster;
 	struct idledebug_options options;
 	struct rusage rusage;
+	int args;
 
-	if (getoptions(argc, argv, &options))
+	args = getoptions(argc, argv, &options);
+	if (args <= 0)
 		return 1;
 
 	/* We have to manipulate some files only accessible to root */
@@ -1134,7 +1169,7 @@ int main(int argc, char *argv[])
 	init_cpu_topo_info();
 
 	/* Acquisition time specified means we will get the traces */
-	if (options.duration) {
+	if (options.duration || args < argc) {
 
 		/* Read cpu topology info from sysfs */
 		read_sysfs_cpu_topo();
@@ -1157,14 +1192,16 @@ int main(int argc, char *argv[])
 		/* Start the recording */
 		if (idlestat_trace_enable(true))
 			return -1;
+
 		/* We want to prevent to begin the acquisition with a cpu in
 		 * idle state because we won't be able later to close the
 		 * state and to determine which state it was. */
 		if (idlestat_wake_all())
 			return -1;
 
-		/* Do nothing */
-		sleep(options.duration);
+		/* Execute the command or wait a specified delay */
+		if (execute(argc - args, &argv[args], envp, &options))
+			return -1;
 
 		/* Wake up all cpus again to account for last idle state */
 		if (idlestat_wake_all())
