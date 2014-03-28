@@ -740,7 +740,7 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 	FILE *f;
 	unsigned int state = 0, freq = 0, cpu = 0, nrcpus = 0;
 	double time, begin = 0, end = 0;
-	size_t count, start = 1;
+	size_t count = 0, start = 1;
 	struct cpuidle_datas *datas;
 	int ret;
 
@@ -802,6 +802,7 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 				      &cpu) == 3);
 			assert(datas->pstates[cpu].pstate != NULL);
 			cpu_change_pstate(datas, cpu, freq, time);
+			count++;
 			continue;
 		}
 
