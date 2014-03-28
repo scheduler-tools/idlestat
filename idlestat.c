@@ -411,12 +411,19 @@ static struct cpufreq_pstates *build_pstate_info(int nrcpus)
 		/* read scaling_available_frequencies for the CPU */
 		sc_av_freq = fopen(fpath, "r");
 		free(fpath);
-		if (!sc_av_freq)
-			goto clean_exit;
+		if (!sc_av_freq) {
+			fprintf(stderr, "warning: P-states not supported for "
+				"CPU%d\n", cpu);
+			continue;
+		}
 		freq = fgets(line, sizeof(line)/sizeof(line[0]), sc_av_freq);
 		fclose(sc_av_freq);
-		if (!freq)
-			goto clean_exit;
+		if (!freq) {
+			/* unlikely to be here, but just in case... */
+			fprintf(stderr, "warning: P-state info not found for "
+				"CPU%d\n", cpu);
+			continue;
+		}
 
 		/* tokenize line and populate each frequency */
 		nrfreq = 0;
@@ -578,6 +585,7 @@ static int store_data(double time, int state, int cpu,
 		      struct cpuidle_datas *datas, int count)
 {
 	struct cpuidle_cstates *cstates = &datas->cstates[cpu];
+	struct cpufreq_pstate *pstate = datas->pstates[cpu].pstate;
 	struct cpuidle_cstate *cstate;
 	struct cpuidle_data *data, *tmp;
 	int nrdata, last_cstate = cstates->last_cstate;
@@ -621,7 +629,10 @@ static int store_data(double time, int state, int cpu,
 
 		/* need indication if CPU is idle or not */
 		cstates->last_cstate = -1;
-		cpu_pstate_running(datas, cpu, time);
+
+		/* update P-state stats if supported */
+		if (pstate)
+			cpu_pstate_running(datas, cpu, time);
 
 		return 0;
 	}
@@ -639,7 +650,10 @@ static int store_data(double time, int state, int cpu,
 	cstates->cstate_max = MAX(cstates->cstate_max, state);
 	cstates->last_cstate = state;
 	cstates->wakeirq = NULL;
-	cpu_pstate_idle(datas, cpu, time);
+
+	/* update P-state stats if supported */
+	if (pstate)
+		cpu_pstate_idle(datas, cpu, time);
 
 	return 0;
 }
@@ -755,12 +769,12 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 	if (!datas->cstates) {
 		free(datas);
 		fclose(f);
-		return ptrerror("calloc cstate");
+		return ptrerror("build_cstate_info: out of memory");
 	}
 
 	datas->pstates = build_pstate_info(nrcpus);
 	if (!datas->pstates)
-		return ptrerror("calloc pstate");
+		return ptrerror("build_pstate_info: out of memory");
 
 	datas->nrcpus = nrcpus;
 
@@ -786,6 +800,7 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 		} else if (strstr(buffer, "cpu_frequency")) {
 			assert(sscanf(buffer, TRACE_FORMAT, &time, &freq,
 				      &cpu) == 3);
+			assert(datas->pstates[cpu].pstate != NULL);
 			cpu_change_pstate(datas, cpu, freq, time);
 			continue;
 		}
