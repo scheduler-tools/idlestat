@@ -25,6 +25,7 @@
  *
  */
 #define _GNU_SOURCE
+#include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1116,6 +1117,14 @@ static int idlestat_wake_all(void)
 	return 0;
 }
 
+static volatile sig_atomic_t sigalrm = 0;
+
+static void sighandler(int sig)
+{
+	if (sig == SIGALRM)
+		sigalrm = 1;
+}
+
 static int execute(int argc, char *argv[], char *const envp[],
 		   struct idledebug_options *options)
 {
@@ -1138,9 +1147,32 @@ static int execute(int argc, char *argv[], char *const envp[],
 	}
 
 	if (pid) {
-		waitpid(pid, &status, 0);
 
-		if (WIFEXITED(status) && !WEXITSTATUS(status))
+		struct sigaction s = {
+			.sa_handler = sighandler,
+			.sa_flags = SA_RESETHAND,
+		};
+
+		sigaddset(&s.sa_mask, SIGALRM);
+		sigaction(SIGALRM, &s, NULL);
+		alarm(options->duration);
+	again:
+		if (waitpid(pid, &status, 0) < 0) {
+			if (errno != EINTR || !sigalrm)
+				goto again;
+			kill(pid, SIGTERM);
+		}
+
+		if (WIFEXITED(status) && !WEXITSTATUS(status)) {
+			/*
+			 * Cancel the timer in case the program
+			 * finished before the timeout
+			 */
+			alarm(0);
+			return 0;
+		}
+
+		if (WIFSIGNALED(status) && WTERMSIG(status) == SIGTERM)
 			return 0;
 	}
 
