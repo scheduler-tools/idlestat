@@ -81,8 +81,10 @@ static int dump_states(struct cpuidle_cstates *cstates,
 
 		kmax = count > 0 ? MIN(count, cstate->nrdata) : cstate->nrdata;
 		for (k = 0; k < kmax; k++) {
-			printf("%lf %d\n", cstate->data[k].begin, j);
-			printf("%lf 0\n", cstate->data[k].end);
+			printf("%lf: enter %s\n", cstate->data[k].begin,
+			       cstate->name);
+			printf("%lf: exit %s\n", cstate->data[k].end,
+			       cstate->name);
 		}
 
 		/* add a break */
