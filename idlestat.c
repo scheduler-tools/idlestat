@@ -106,6 +106,10 @@ static int display_states(struct cpuidle_cstates *cstates,
 		if (state != -1 && state != j)
 			continue;
 
+		if (c->nrdata == 0)
+			/* nothing to report for this state */
+			continue;
+
 		printf("%*c %s\t%d\t%15.2lf\t%15.2lf\t%.2lf\t%.2lf\n",
 			(int)strlen(str), ' ',
 			c->name, c->nrdata, c->duration,
@@ -116,6 +120,11 @@ static int display_states(struct cpuidle_cstates *cstates,
 	if (pstates) {
 		for (j = 0; j < pstates->max; j++) {
 			struct cpufreq_pstate *p = &(pstates->pstate[j]);
+
+			if (p->count == 0)
+				/* nothing to report for this state */
+				continue;
+
 			printf("%*c %d\t%d\t%15.2lf\t%15.2lf\t%.2lf\t%.2lf\n",
 				(int)strlen(str), ' ',
 				p->freq/1000, p->count, p->duration,
