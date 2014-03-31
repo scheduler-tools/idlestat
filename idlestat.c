@@ -69,7 +69,7 @@ static int dump_states(struct cpuidle_cstates *cstates,
 		       struct cpufreq_pstates *pstates,
 		       int state, int count, char *str)
 {
-	int j, k;
+	int j, k, kmax;
 	struct cpuidle_cstate *cstate;
 
 	for (j = 0; j < cstates->cstate_max + 1; j++) {
@@ -79,7 +79,8 @@ static int dump_states(struct cpuidle_cstates *cstates,
 
 		cstate = &cstates->cstate[j];
 
-		for (k = 0; k < MIN(count, cstate->nrdata); k++) {
+		kmax = count > 0 ? MIN(count, cstate->nrdata) : cstate->nrdata;
+		for (k = 0; k < kmax; k++) {
 			printf("%lf %d\n", cstate->data[k].begin, j);
 			printf("%lf 0\n", cstate->data[k].end);
 		}
