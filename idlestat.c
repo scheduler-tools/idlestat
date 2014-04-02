@@ -67,16 +67,12 @@ static inline void *ptrerror(const char *str)
 
 static int dump_states(struct cpuidle_cstates *cstates,
 		       struct cpufreq_pstates *pstates,
-		       int state, int count, char *str)
+		       int count, char *str)
 {
 	int j, k, kmax;
 	struct cpuidle_cstate *cstate;
 
 	for (j = 0; j < cstates->cstate_max + 1; j++) {
-
-		if (state != -1 && state != j)
-			continue;
-
 		cstate = &cstates->cstate[j];
 
 		kmax = count > 0 ? MIN(count, cstate->nrdata) : cstate->nrdata;
@@ -96,7 +92,7 @@ static int dump_states(struct cpuidle_cstates *cstates,
 
 static int display_states(struct cpuidle_cstates *cstates,
 			  struct cpufreq_pstates *pstates,
-			  int state, int count, char *str)
+			  int count, char *str)
 {
 	int j;
 
@@ -104,9 +100,6 @@ static int display_states(struct cpuidle_cstates *cstates,
 	       "max(us)\n", str);
 	for (j = 0; j < cstates->cstate_max + 1; j++) {
 		struct cpuidle_cstate *c = &cstates->cstate[j];
-
-		if (state != -1 && state != j)
-			continue;
 
 		if (c->nrdata == 0)
 			/* nothing to report for this state */
@@ -152,9 +145,9 @@ static int display_states(struct cpuidle_cstates *cstates,
 	return 0;
 }
 
-int dump_all_data(struct cpuidle_datas *datas, int state, int count,
+int dump_all_data(struct cpuidle_datas *datas, int count,
 		int (*dump)(struct cpuidle_cstates *,
-			    struct cpufreq_pstates *, int,  int, char *))
+			    struct cpufreq_pstates *, int, char *))
 {
 	int i = 0, nrcpus = datas->nrcpus;
 	struct cpuidle_cstates *cstates;
@@ -169,7 +162,7 @@ int dump_all_data(struct cpuidle_datas *datas, int state, int count,
 		else
 			sprintf(buffer, "cpu%d", i);
 
-		dump(cstates, pstates, state, count, buffer);
+		dump(cstates, pstates, count, buffer);
 
 		i++;
 
@@ -954,7 +947,7 @@ struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
 static void help(const char *cmd)
 {
 	fprintf(stderr,
-		"%s [-d|--dump] [-c|--cstate=x] [-o|--output-file] <file>\n",
+		"%s [-d|--dump] [-t <seconds>] -o|--output-file <file>\n",
 		basename(cmd));
 }
 
@@ -966,7 +959,6 @@ static void version(const char *cmd)
 static struct option long_options[] = {
 	{ "dump",        0, 0, 'd' },
 	{ "iterations",  0, 0, 'i' },
-	{ "cstate",      0, 0, 'c' },
 	{ "debug",       0, 0, 'g' },
 	{ "output-file", 0, 0, 'o' },
 	{ "verbose",     0, 0, 'v' },
@@ -978,7 +970,6 @@ static struct option long_options[] = {
 struct idledebug_options {
 	bool debug;
 	bool dump;
-	int cstate;
 	int iterations;
 	char *filename;
 	unsigned int duration;
@@ -989,14 +980,13 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 	int c;
 
 	memset(options, 0, sizeof(*options));
-	options->cstate = -1;
 	options->filename = NULL;
 
 	while (1) {
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, "gdvVho:i:c:t:",
+		c = getopt_long(argc, argv, "gdvVho:i:t:",
 				long_options, &optindex);
 		if (c == -1)
 			break;
@@ -1010,9 +1000,6 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 			break;
 		case 'i':
 			options->iterations = atoi(optarg);
-			break;
-		case 'c':
-			options->cstate = atoi(optarg);
 			break;
 		case 't':
 			options->duration = atoi(optarg);
@@ -1035,11 +1022,6 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 		default:
 			return -1;
 		}
-	}
-
-	if (options->cstate >= MAXCSTATE) {
-		fprintf(stderr, "C-state must be less than %d\n", MAXCSTATE);
-		return -1;
 	}
 
 	if (options->iterations < 0)
@@ -1215,25 +1197,21 @@ int main(int argc, char *argv[])
 	 */
 	if (0 == establish_idledata_to_topo(datas)) {
 		if (options.dump > 0)
-			dump_cpu_topo_info(options.cstate, options.iterations,
-					   dump_states);
+			dump_cpu_topo_info(options.iterations, dump_states);
 		else
-			dump_cpu_topo_info(options.cstate, options.iterations,
-					   display_states);
+			dump_cpu_topo_info(options.iterations, display_states);
 	} else {
 		cluster = cluster_data(datas);
 		if (!cluster)
 			return 1;
 
 		if (options.dump > 0) {
-			dump_all_data(datas, options.cstate,
-				      options.iterations, dump_states);
-			dump_all_data(cluster, options.cstate,
-				      options.iterations, dump_states);
+			dump_all_data(datas, options.iterations, dump_states);
+			dump_all_data(cluster, options.iterations, dump_states);
 		} else {
-			dump_all_data(datas, options.cstate,
+			dump_all_data(datas,
 				      options.iterations, display_states);
-			dump_all_data(cluster, options.cstate,
+			dump_all_data(cluster,
 				      options.iterations, display_states);
 		}
 
