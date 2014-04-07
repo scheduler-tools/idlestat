@@ -277,22 +277,18 @@ static char *cpuidle_cstate_name(int cpu, int state)
 
 	/* read cpuidle state name for the CPU */
 	snf = fopen(fpath, "r");
-	if (!snf) {
-		free(fpath);
+	free(fpath);
+	if (!snf)
+		/* file not found, or other error */
 		return NULL;
-	}
 
 	name = fgets(line, sizeof(line)/sizeof(line[0]), snf);
-	if (!name)
-		goto free_exit;
-
-	/* get rid of trailing characters and duplicate string */
-	name = strtok(name, "\n ");
-	name = strdup(name);
-
-free_exit:
 	fclose(snf);
-	free(fpath);
+	if (name) {
+		/* get rid of trailing characters and duplicate string */
+		name = strtok(name, "\n ");
+		name = strdup(name);
+	}
 	return name;
 }
 
