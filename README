@@ -1,0 +1,41 @@
+Introduction
+------------
+
+The purpose of idlestat is to measure how long we have been in the different
+idle and operating states.
+
+Idlestat uses kernel's FTRACE function to monitor and capture C-state and
+P-state transitions of CPUs over a time interval. It extracts the following
+information from trace file:
+	- Times when CPUs entered and exited a certain C-state
+	- Times when CPUs entered and exited a certain P-state
+	- Raised IRQs
+
+Following a successful run, idlestat calculates and reports the following
+information:
+	- Total, average, minimum and maximum time spent in each C-state,
+	per-CPU.
+	- Total, average, minimum and maximum time spent in each P-state,
+	per-CPU.
+	- Total, average, minimum and maximum time during which all CPUs in
+	a cluster were in the same C-state, per-cluster.
+	- Number of times a certain IRQ caused a CPU to exit idle state,
+	per-CPU and per-IRQ
+
+Requirements
+------------
+
+1. It must be run as root in order to access /sys/kernel/debug.
+2. It requires tracing to be enabled in the kernel
+
+Example Usage
+-------------
+
+./idlestat -d -o myoutput -t 10
+
+where,
+
+-d : dump the states at the end
+-o : output file to store the traces
+-t : the duration in seconds
+
