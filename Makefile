@@ -22,14 +22,17 @@
 #     Zoran Markovic <zoran.markovic@linaro.org>
 #
 CFLAGS?=-g -Wall
-CC?=gcc
+CC=gcc
 
 OBJS = idlestat.o topology.o trace.o utils.o
 
 default: idlestat
 
+%.o: %.c
+	$(CROSS_COMPILE)$(CC) -c -o $@ $< $(CFLAGS)
+
 idlestat: $(OBJS)
-	$(CC) ${CFLAGS} $(OBJS) -o $@
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) $(OBJS) -o $@
 
 clean:
 	rm -f $(OBJS) idlestat
