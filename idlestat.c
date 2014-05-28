@@ -946,7 +946,7 @@ struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
 static void help(const char *cmd)
 {
 	fprintf(stderr,
-		"%s [-d|--dump] [-t <seconds>] -o|--output-file <file>\n",
+		"%s [-m|--dump] [-t <seconds>] -o|--output-file <file>\n",
 		basename(cmd));
 }
 
@@ -956,10 +956,10 @@ static void version(const char *cmd)
 }
 
 static struct option long_options[] = {
-	{ "dump",        no_argument,       0, 'd' },
-	{ "debug",       no_argument,       0, 'g' },
+	{ "debug",       no_argument,       0, 'd' },
 	{ "help",        no_argument,       0, 'h' },
 	{ "iterations",  required_argument, 0, 'i' },
+	{ "dump",        no_argument,       0, 'm' },
 	{ "output-file", required_argument, 0, 'o' },
 	{ "duration",    required_argument, 0, 't' },
 	{ "version",     no_argument,       0, 'V' },
@@ -985,16 +985,13 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, "dghi:o:t:V",
+		c = getopt_long(argc, argv, "dhi:mo:t:V",
 				long_options, &optindex);
 		if (c == -1)
 			break;
 
 		switch (c) {
 		case 'd':
-			options->dump = true;
-			break;
-		case 'g':
 			options->debug = true;
 			break;
 		case 'h':
@@ -1003,6 +1000,9 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 			break;
 		case 'i':
 			options->iterations = atoi(optarg);
+			break;
+		case 'm':
+			options->dump = true;
 			break;
 		case 'o':
 			options->filename = optarg;
