@@ -960,7 +960,6 @@ static struct option long_options[] = {
 	{ "iterations",  0, 0, 'i' },
 	{ "debug",       0, 0, 'g' },
 	{ "output-file", 0, 0, 'o' },
-	{ "verbose",     0, 0, 'v' },
 	{ "version",     0, 0, 'V' },
 	{ "help",        0, 0, 'h' },
 	{ 0,             0, 0, 0   }
@@ -985,7 +984,7 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, "gdvVho:i:t:",
+		c = getopt_long(argc, argv, "gdVho:i:t:",
 				long_options, &optindex);
 		if (c == -1)
 			break;
