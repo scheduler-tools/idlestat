@@ -955,17 +955,6 @@ static void version(const char *cmd)
 	printf("%s version %s\n", basename(cmd), IDLESTAT_VERSION);
 }
 
-static struct option long_options[] = {
-	{ "debug",       no_argument,       0, 'd' },
-	{ "help",        no_argument,       0, 'h' },
-	{ "iterations",  required_argument, 0, 'i' },
-	{ "dump",        no_argument,       0, 'm' },
-	{ "output-file", required_argument, 0, 'o' },
-	{ "duration",    required_argument, 0, 't' },
-	{ "version",     no_argument,       0, 'V' },
-	{ 0, 0, 0, 0 }
-};
-
 struct idledebug_options {
 	bool debug;
 	bool dump;
@@ -976,6 +965,16 @@ struct idledebug_options {
 
 int getoptions(int argc, char *argv[], struct idledebug_options *options)
 {
+	struct option long_options[] = {
+		{ "debug",       no_argument,       NULL, 'd' },
+		{ "help",        no_argument,       NULL, 'h' },
+		{ "iterations",  required_argument, NULL, 'i' },
+		{ "dump",        no_argument,       NULL, 'm' },
+		{ "output-file", required_argument, NULL, 'o' },
+		{ "duration",    required_argument, NULL, 't' },
+		{ "version",     no_argument,       NULL, 'V' },
+		{ 0, 0, 0, 0 }
+	};
 	int c;
 
 	memset(options, 0, sizeof(*options));
