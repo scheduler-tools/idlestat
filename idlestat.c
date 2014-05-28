@@ -957,11 +957,11 @@ static void version(const char *cmd)
 
 static struct option long_options[] = {
 	{ "dump",        0, 0, 'd' },
-	{ "iterations",  0, 0, 'i' },
 	{ "debug",       0, 0, 'g' },
+	{ "help",        0, 0, 'h' },
+	{ "iterations",  0, 0, 'i' },
 	{ "output-file", 0, 0, 'o' },
 	{ "version",     0, 0, 'V' },
-	{ "help",        0, 0, 'h' },
 	{ 0,             0, 0, 0   }
 };
 
@@ -969,8 +969,8 @@ struct idledebug_options {
 	bool debug;
 	bool dump;
 	int iterations;
-	char *filename;
 	unsigned int duration;
+	char *filename;
 };
 
 int getoptions(int argc, char *argv[], struct idledebug_options *options)
@@ -984,30 +984,30 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, "gdVho:i:t:",
+		c = getopt_long(argc, argv, "dghi:o:t:V",
 				long_options, &optindex);
 		if (c == -1)
 			break;
 
 		switch (c) {
-		case 'g':
-			options->debug = true;
-			break;
 		case 'd':
 			options->dump = true;
 			break;
-		case 'i':
-			options->iterations = atoi(optarg);
-			break;
-		case 't':
-			options->duration = atoi(optarg);
-			break;
-		case 'o':
-			options->filename = optarg;
+		case 'g':
+			options->debug = true;
 			break;
 		case 'h':
 			help(argv[0]);
 			exit(0);
+			break;
+		case 'i':
+			options->iterations = atoi(optarg);
+			break;
+		case 'o':
+			options->filename = optarg;
+			break;
+		case 't':
+			options->duration = atoi(optarg);
 			break;
 		case 'V':
 			version(argv[0]);
