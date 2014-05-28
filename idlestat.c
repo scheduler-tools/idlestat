@@ -961,6 +961,7 @@ static struct option long_options[] = {
 	{ "help",        0, 0, 'h' },
 	{ "iterations",  0, 0, 'i' },
 	{ "output-file", 0, 0, 'o' },
+	{ "duration",    0, 0, 't' },
 	{ "version",     0, 0, 'V' },
 	{ 0,             0, 0, 0   }
 };
