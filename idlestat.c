@@ -956,14 +956,14 @@ static void version(const char *cmd)
 }
 
 static struct option long_options[] = {
-	{ "dump",        0, 0, 'd' },
-	{ "debug",       0, 0, 'g' },
-	{ "help",        0, 0, 'h' },
-	{ "iterations",  0, 0, 'i' },
-	{ "output-file", 0, 0, 'o' },
-	{ "duration",    0, 0, 't' },
-	{ "version",     0, 0, 'V' },
-	{ 0,             0, 0, 0   }
+	{ "dump",        no_argument,       0, 'd' },
+	{ "debug",       no_argument,       0, 'g' },
+	{ "help",        no_argument,       0, 'h' },
+	{ "iterations",  required_argument, 0, 'i' },
+	{ "output-file", required_argument, 0, 'o' },
+	{ "duration",    required_argument, 0, 't' },
+	{ "version",     no_argument,       0, 'V' },
+	{ 0, 0, 0, 0 }
 };
 
 struct idledebug_options {
