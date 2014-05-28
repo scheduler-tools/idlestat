@@ -959,7 +959,7 @@ static void version(const char *cmd)
 	printf("%s version %s\n", basename(cmd), IDLESTAT_VERSION);
 }
 
-struct idledebug_options {
+struct program_options {
 	bool debug;
 	bool dump;
 	int iterations;
@@ -967,7 +967,7 @@ struct idledebug_options {
 	char *filename;
 };
 
-int getoptions(int argc, char *argv[], struct idledebug_options *options)
+int getoptions(int argc, char *argv[], struct program_options *options)
 {
 	struct option long_options[] = {
 		{ "debug",       no_argument,       NULL, 'd' },
@@ -1135,7 +1135,7 @@ static void sighandler(int sig)
 }
 
 static int execute(int argc, char *argv[], char *const envp[],
-		   struct idledebug_options *options)
+		   struct program_options *options)
 {
 	pid_t pid;
 	int status;
@@ -1192,7 +1192,7 @@ int main(int argc, char *argv[], char *const envp[])
 {
 	struct cpuidle_datas *datas;
 	struct cpuidle_datas *cluster;
-	struct idledebug_options options;
+	struct program_options options;
 	struct rusage rusage;
 	int args;
 
