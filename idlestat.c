@@ -985,7 +985,7 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, "dhi:mo:t:V",
+		c = getopt_long(argc, argv, ":dhi:mo:t:V",
 				long_options, &optindex);
 		if (c == -1)
 			break;
@@ -1014,11 +1014,16 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 			version(argv[0]);
 			exit(0);
 			break;
-		case '?':
-			fprintf(stderr, "%s: Unknown option %c'.\n",
+		case 0:     /* getopt_long() set a variable, just keep going */
+			break;
+		case ':':   /* missing option argument */
+			fprintf(stderr, "%s: option `-%c' requires an argument\n",
 				argv[0], optopt);
-			/* fall through */
+			return -1;
+		case '?':   /* invalid option */
 		default:
+			fprintf(stderr, "%s: Unknown option `-%c'.\n",
+				argv[0], optopt);
 			return -1;
 		}
 	}
@@ -1027,7 +1032,7 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 		fprintf(stderr, "dump values must be a positive value\n");
 
 	if (NULL == options->filename) {
-		fprintf(stderr, "expected filename\n");
+		fprintf(stderr, "expected -o <filename>\n");
 		return -1;
 	}
 
