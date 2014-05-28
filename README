@@ -28,14 +28,17 @@ Requirements
 1. It must be run as root in order to access /sys/kernel/debug.
 2. It requires tracing to be enabled in the kernel
 
+Help
+----
+./idlestat -h will show all the options
+
 Example Usage
 -------------
 
-./idlestat -d -o myoutput -t 10
+./idlestat -o /tmp/myoutput -t 10
 
 where,
 
--d : dump the states at the end
 -o : output file to store the traces
 -t : the duration in seconds
 

@@ -946,8 +946,12 @@ struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
 static void help(const char *cmd)
 {
 	fprintf(stderr,
-		"%s [-m|--dump] [-t <seconds>] -o|--output-file <file>\n",
+		"\nUsage:\n%s -o|--output-file <file> [-m|--dump]"
+		" [-t|--duration <seconds>] [-i|--iterations <number>]"
+		" [-d|--debug]\n",
 		basename(cmd));
+	fprintf(stderr,
+		"\nExample:\n%s -o /tmp/myoutput -t 30\n", basename(cmd));
 }
 
 static void version(const char *cmd)
@@ -1017,12 +1021,13 @@ int getoptions(int argc, char *argv[], struct idledebug_options *options)
 			break;
 		case ':':   /* missing option argument */
 			fprintf(stderr, "%s: option `-%c' requires an argument\n",
-				argv[0], optopt);
+				basename(argv[0]), optopt);
 			return -1;
 		case '?':   /* invalid option */
 		default:
 			fprintf(stderr, "%s: Unknown option `-%c'.\n",
-				argv[0], optopt);
+				basename(argv[0]), optopt);
+			help(argv[0]);
 			return -1;
 		}
 	}
