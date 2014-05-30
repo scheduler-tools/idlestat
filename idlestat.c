@@ -749,8 +749,10 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 	int ret;
 
 	f = fopen(path, "r");
-	if (!f)
-		return ptrerror("fopen");
+	if (!f) {
+		fprintf(stderr, "%s: failed to open '%s': %m\n", __func__, path);
+		return NULL;
+	}
 
 	/* version line */
 	fgets(buffer, BUFSIZE, f);
@@ -1055,7 +1057,7 @@ static int idlestat_file_for_each_line(const char *path, void *data,
 	f = fopen(path, "r");
 
 	if (!f) {
-		fprintf(stderr, "failed to open '%s': %m\n", path);
+		fprintf(stderr, "%s: failed to open '%s': %m\n", __func__, path);
 		return -1;
 	}
 
@@ -1080,8 +1082,9 @@ static int idlestat_store(const char *path)
 		return -1;
 
 	f = fopen(path, "w+");
+
 	if (!f) {
-		fprintf(f, "failed to open '%s': %m\n", path);
+		fprintf(f, "%s: failed to open '%s': %m\n", __func__, path);
 		return -1;
 	}
 
