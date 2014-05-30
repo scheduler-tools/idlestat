@@ -1085,7 +1085,7 @@ static int idlestat_store(const char *path)
 		return -1;
 	}
 
-	fprintf(f, "version = 1\n");
+	fprintf(f, "version = %s\n", IDLESTAT_VERSION);
 	fprintf(f, "cpus=%d\n", ret);
 
 	/* output topology information */
