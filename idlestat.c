@@ -948,12 +948,12 @@ struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
 static void help(const char *cmd)
 {
 	fprintf(stderr,
-		"\nUsage:\n%s -o|--output-file <file> [-z|--dump]"
+		"\nUsage:\n%s -f|--trace-file <file> [-z|--dump]"
 		" [-t|--duration <seconds>] [-i|--iterations <number>]"
 		" [-d|--debug]\n",
 		basename(cmd));
 	fprintf(stderr,
-		"\nExample:\n%s -o /tmp/myoutput -t 30\n", basename(cmd));
+		"\nExample:\n%s -f /tmp/myoutput -t 30\n", basename(cmd));
 }
 
 static void version(const char *cmd)
@@ -973,9 +973,9 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 {
 	struct option long_options[] = {
 		{ "debug",       no_argument,       NULL, 'd' },
+		{ "trace-file",  required_argument, NULL, 'f' },
 		{ "help",        no_argument,       NULL, 'h' },
 		{ "iterations",  required_argument, NULL, 'i' },
-		{ "output-file", required_argument, NULL, 'o' },
 		{ "duration",    required_argument, NULL, 't' },
 		{ "version",     no_argument,       NULL, 'V' },
 		{ "dump",        no_argument,       NULL, 'z' },
@@ -990,7 +990,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, ":dhi:o:t:Vz",
+		c = getopt_long(argc, argv, ":df:hi:t:Vz",
 				long_options, &optindex);
 		if (c == -1)
 			break;
@@ -999,15 +999,15 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		case 'd':
 			options->debug = true;
 			break;
+		case 'f':
+			options->filename = optarg;
+			break;
 		case 'h':
 			help(argv[0]);
 			exit(0);
 			break;
 		case 'i':
 			options->iterations = atoi(optarg);
-			break;
-		case 'o':
-			options->filename = optarg;
 			break;
 		case 't':
 			options->duration = atoi(optarg);
@@ -1038,7 +1038,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		fprintf(stderr, "dump values must be a positive value\n");
 
 	if (NULL == options->filename) {
-		fprintf(stderr, "expected -o <filename>\n");
+		fprintf(stderr, "expected -f <trace filename>\n");
 		return -1;
 	}
 

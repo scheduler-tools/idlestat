@@ -35,10 +35,10 @@ Help
 Example Usage
 -------------
 
-./idlestat -o /tmp/myoutput -t 10
+./idlestat -f /tmp/myoutput -t 10
 
 where,
 
--o : output file to store the traces
+-f : output file to store the traces
 -t : the duration in seconds
 
