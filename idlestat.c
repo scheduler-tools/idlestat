@@ -948,7 +948,7 @@ struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
 static void help(const char *cmd)
 {
 	fprintf(stderr,
-		"\nUsage:\n%s -o|--output-file <file> [-m|--dump]"
+		"\nUsage:\n%s -o|--output-file <file> [-z|--dump]"
 		" [-t|--duration <seconds>] [-i|--iterations <number>]"
 		" [-d|--debug]\n",
 		basename(cmd));
@@ -975,10 +975,10 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		{ "debug",       no_argument,       NULL, 'd' },
 		{ "help",        no_argument,       NULL, 'h' },
 		{ "iterations",  required_argument, NULL, 'i' },
-		{ "dump",        no_argument,       NULL, 'm' },
 		{ "output-file", required_argument, NULL, 'o' },
 		{ "duration",    required_argument, NULL, 't' },
 		{ "version",     no_argument,       NULL, 'V' },
+		{ "dump",        no_argument,       NULL, 'z' },
 		{ 0, 0, 0, 0 }
 	};
 	int c;
@@ -990,7 +990,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, ":dhi:mo:t:V",
+		c = getopt_long(argc, argv, ":dhi:o:t:Vz",
 				long_options, &optindex);
 		if (c == -1)
 			break;
@@ -1006,9 +1006,6 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		case 'i':
 			options->iterations = atoi(optarg);
 			break;
-		case 'm':
-			options->dump = true;
-			break;
 		case 'o':
 			options->filename = optarg;
 			break;
@@ -1018,6 +1015,9 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		case 'V':
 			version(argv[0]);
 			exit(0);
+			break;
+		case 'z':
+			options->dump = true;
 			break;
 		case 0:     /* getopt_long() set a variable, just keep going */
 			break;
