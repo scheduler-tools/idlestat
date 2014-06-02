@@ -948,12 +948,18 @@ struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
 static void help(const char *cmd)
 {
 	fprintf(stderr,
-		"\nUsage:\n%s -f|--trace-file <file> [-z|--dump]"
-		" [-t|--duration <seconds>] [-i|--iterations <number>]"
-		" [-d|--debug]\n",
+		"\nUsage:\nTrace mode: %s --trace -f|--trace-file <filename>"
+		" -t|--duration <seconds> "
+		"[-z|--dump] [-i|--iterations <number>] [-d|--debug]\n",
 		basename(cmd));
 	fprintf(stderr,
-		"\nExample:\n%s -f /tmp/myoutput -t 30\n", basename(cmd));
+		"\nReporting mode: %s --import -f|--trace-file <filename>"
+		"[-z|--dump] [-i|--iterations <number>] [-d|--debug]\n",
+		basename(cmd));
+	fprintf(stderr,
+		"\nExample:\n%s --trace -f /tmp/myoutput -t 30\n", basename(cmd));
+	fprintf(stderr,
+		"\nExample:\n%s --import -f /tmp/mytrace\n", basename(cmd));
 }
 
 static void version(const char *cmd)
@@ -961,10 +967,16 @@ static void version(const char *cmd)
 	printf("%s version %s\n", basename(cmd), IDLESTAT_VERSION);
 }
 
+enum modes {
+  TRACE=1,
+  IMPORT
+};
+
 struct program_options {
 	bool debug;
 	bool dump;
 	int iterations;
+	int mode;
 	unsigned int duration;
 	char *filename;
 };
@@ -972,6 +984,8 @@ struct program_options {
 int getoptions(int argc, char *argv[], struct program_options *options)
 {
 	struct option long_options[] = {
+		{ "trace",       no_argument,       &options->mode, TRACE },
+		{ "import",      no_argument,       &options->mode, IMPORT },
 		{ "debug",       no_argument,       NULL, 'd' },
 		{ "trace-file",  required_argument, NULL, 'f' },
 		{ "help",        no_argument,       NULL, 'h' },
@@ -1037,9 +1051,21 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 	if (options->iterations < 0)
 		fprintf(stderr, "dump values must be a positive value\n");
 
+	if (options->mode <= 0) {
+		fprintf(stderr, "select a mode: --trace or --import\n");
+		return -1;
+	}
+
 	if (NULL == options->filename) {
 		fprintf(stderr, "expected -f <trace filename>\n");
 		return -1;
+	}
+
+	if (options->mode == TRACE) {
+		if (options->duration <= 0) {
+			fprintf(stderr, "expected -t <seconds>\n");
+			return -1;
+		}
 	}
 
 	return optind;
@@ -1213,7 +1239,7 @@ int main(int argc, char *argv[], char *const envp[])
 	init_cpu_topo_info();
 
 	/* Acquisition time specified means we will get the traces */
-	if (options.duration || args < argc) {
+	if ((options.mode == TRACE) || args < argc) {
 
 		/* Read cpu topology info from sysfs */
 		read_sysfs_cpu_topo();

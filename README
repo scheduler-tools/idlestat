@@ -35,10 +35,8 @@ Help
 Example Usage
 -------------
 
-./idlestat -f /tmp/myoutput -t 10
+Trace mode:
+sudo ./idlestat --trace -f /tmp/myoutput -t 10
 
-where,
-
--f : output file to store the traces
--t : the duration in seconds
-
+Reporing mode (/tmp/mytrace already contains traces):
+sudo ./idlestat --import -f /tmp/mytrace
