@@ -46,7 +46,7 @@
 #include "list.h"
 #include "topology.h"
 
-#define IDLESTAT_VERSION "0.3-rc2"
+#define IDLESTAT_VERSION "0.3"
 
 static char irq_type_name[][8] = {
 			"irq",
