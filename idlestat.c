@@ -1229,9 +1229,9 @@ int main(int argc, char *argv[], char *const envp[])
 	if (args <= 0)
 		return 1;
 
-	/* We have to manipulate some files only accessible to root */
-	if (getuid()) {
-		fprintf(stderr, "must be root to run the tool\n");
+	/* Tracing requires manipulation of some files only accessible to root */
+	if ((options.mode == TRACE) && getuid()) {
+		fprintf(stderr, "must be root to run traces\n");
 		return -1;
 	}
 
