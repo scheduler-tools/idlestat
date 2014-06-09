@@ -29,8 +29,8 @@
 
 #define BUFSIZE 256
 #define NAMELEN 16
-#define MAXCSTATE 8
-#define MAXPSTATE 8
+#define MAXCSTATE 16
+#define MAXPSTATE 16
 #define MAX(A, B) (A > B ? A : B)
 #define MIN(A, B) (A < B ? A : B)
 #define AVG(A, B, I) ((A) + ((B - A) / (I)))
