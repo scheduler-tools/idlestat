@@ -47,6 +47,7 @@
 #include "topology.h"
 
 #define IDLESTAT_VERSION "0.3"
+#define USEC_PER_SEC 1000000
 
 static char irq_type_name[][8] = {
 			"irq",
@@ -193,7 +194,7 @@ static struct cpuidle_data *intersection(struct cpuidle_data *data1,
 	data->begin = begin;
 	data->end = end;
 	data->duration = end - begin;
-	data->duration *= 1000000;
+	data->duration *= USEC_PER_SEC;
 
 	return data;
 }
@@ -510,7 +511,6 @@ static void open_next_pstate(struct cpufreq_pstates *ps, int s, double time)
 	open_current_pstate(ps, time);
 }
 
-#define USEC_PER_SEC 1000000
 static void close_current_pstate(struct cpufreq_pstates *ps, double time)
 {
 	int c = ps->current;
@@ -617,7 +617,7 @@ static int store_data(double time, int state, int cpu,
 			return 0;
 
 		/* convert to us */
-		data->duration *= 1000000;
+		data->duration *= USEC_PER_SEC;
 
 		cstate->min_time = MIN(cstate->min_time, data->duration);
 
@@ -1110,7 +1110,7 @@ static int idlestat_store(const char *path)
 	f = fopen(path, "w+");
 
 	if (!f) {
-		fprintf(f, "%s: failed to open '%s': %m\n", __func__, path);
+		fprintf(stderr, "%s: failed to open '%s': %m\n", __func__, path);
 		return -1;
 	}
 
