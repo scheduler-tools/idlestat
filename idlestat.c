@@ -1202,9 +1202,9 @@ static int execute(int argc, char *argv[], char *const envp[],
 		alarm(options->duration);
 	again:
 		if (waitpid(pid, &status, 0) < 0) {
-			if (errno != EINTR || !sigalrm)
-				goto again;
-			kill(pid, SIGTERM);
+			if (errno == EINTR && sigalrm)
+				kill(pid, SIGTERM);
+			goto again;
 		}
 
 		if (WIFEXITED(status) && !WEXITSTATUS(status)) {
