@@ -485,7 +485,7 @@ static int get_current_pstate(struct cpuidle_datas *datas, int cpu,
 	return ps->idle;
 }
 
-static int freq_to_pstate_index(struct cpufreq_pstates *ps, int freq)
+static int freq_to_pstate_index(struct cpufreq_pstates *ps, unsigned int freq)
 {
 	int i;
 
@@ -531,7 +531,7 @@ static void close_current_pstate(struct cpufreq_pstates *ps, double time)
 }
 
 static void cpu_change_pstate(struct cpuidle_datas *datas, int cpu,
-			      int freq, double time)
+			      unsigned int freq, double time)
 {
 	struct cpufreq_pstates *ps;
 	struct cpufreq_pstate *p;
