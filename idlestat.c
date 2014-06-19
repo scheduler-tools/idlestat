@@ -844,8 +844,10 @@ struct cpuidle_datas *cluster_data(struct cpuidle_datas *datas)
 	result->nrcpus = -1; /* the cluster */
 
 	result->cstates = calloc(sizeof(*result->cstates), 1);
-	if (!result->cstates)
+	if (!result->cstates) {
+		free(result);
 		return NULL;
+	}
 
 	/* hack but negligeable overhead */
 	for (i = 0; i < datas->nrcpus; i++)
