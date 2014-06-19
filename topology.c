@@ -276,8 +276,10 @@ static int topo_folder_scan(char *path, folder_filter_t filter)
 	}
 
 	ret = asprintf(&basedir, "%s", path);
-	if (ret < 0)
+	if (ret < 0) {
+		closedir(dir);
 		return -1;
+	}
 
 	while (!readdir_r(dir, &dirent, &direntp)) {
 
