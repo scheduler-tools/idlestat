@@ -362,12 +362,12 @@ int read_cpu_topo_info(FILE *f, char *buf)
 
 		fgets(buf, BUFSIZE, f);
 		do {
-			ret = sscanf(buf, "\tcore%u", &cpu_info.core_id);
+			ret = sscanf(buf, "\tcore%d", &cpu_info.core_id);
 			if (ret) {
 				is_ht = true;
 				fgets(buf, BUFSIZE, f);
 			} else {
-				ret = sscanf(buf, "\tcpu%u", &cpu_info.cpu_id);
+				ret = sscanf(buf, "\tcpu%d", &cpu_info.cpu_id);
 				if (ret)
 					is_ht = false;
 				else
@@ -376,11 +376,11 @@ int read_cpu_topo_info(FILE *f, char *buf)
 
 			do {
 				if (!is_ht) {
-					ret = sscanf(buf, "\tcpu%u",
+					ret = sscanf(buf, "\tcpu%d",
 						     &cpu_info.cpu_id);
 					cpu_info.core_id = cpu_info.cpu_id;
 				} else {
-					ret = sscanf(buf, "\t\tcpu%u",
+					ret = sscanf(buf, "\t\tcpu%d",
 						     &cpu_info.cpu_id);
 				}
 
