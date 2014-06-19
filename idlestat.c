@@ -1179,8 +1179,9 @@ static int execute(int argc, char *argv[], char *const envp[],
 		return -1;
 	}
 
-	if (pid == 0 && execve(argv[0], argv, envp)) {
-		perror("execv");
+	if (pid == 0 && execvpe(argv[0], argv, envp)) {
+		/* Forked child */
+		perror("execvpe");
 		exit(1);
 	}
 
