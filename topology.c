@@ -308,6 +308,7 @@ static int topo_folder_scan(char *path, folder_filter_t filter)
 			dir_topology = opendir(path);
 			if (!dir_topology)
 				continue;
+			closedir(dir_topology);
 
 			read_topology_cb(newpath, &cpu_info);
 			assert(sscanf(direntp->d_name, "cpu%d",
