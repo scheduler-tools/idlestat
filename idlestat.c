@@ -698,7 +698,8 @@ static int store_irq(int cpu, int irqid, char *irqname,
 
 		irqinfo = &wakeinfo->irqinfo[wakeinfo->nrdata++];
 		irqinfo->id = irqid;
-		strcpy(irqinfo->name, irqname);
+		strncpy(irqinfo->name, irqname, sizeof(irqinfo->name));
+		irqinfo->name[sizeof(irqinfo->name) - 1] = '\0';
 		irqinfo->irq_type = irq_type;
 		irqinfo->count = 0;
 	}
