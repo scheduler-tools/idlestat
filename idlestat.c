@@ -779,8 +779,12 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 	}
 
 	datas->pstates = build_pstate_info(nrcpus);
-	if (!datas->pstates)
+	if (!datas->pstates) {
+		free(datas->cstates);
+		free(datas);
+		fclose(f);
 		return ptrerror("build_pstate_info: out of memory");
+	}
 
 	datas->nrcpus = nrcpus;
 
