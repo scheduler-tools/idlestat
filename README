@@ -36,7 +36,11 @@ Example Usage
 -------------
 
 Trace mode:
-sudo ./idlestat --trace -f /tmp/myoutput -t 10
+sudo ./idlestat --trace -f /tmp/mytrace -t 10
 
 Reporing mode (/tmp/mytrace already contains traces):
 sudo ./idlestat --import -f /tmp/mytrace
+
+Trace mode with workload (e.g. sleep, cyclictest):
+sudo ./idlestat --trace -f /tmp/mytrace -t 10 -- /bin/sleep 10
+sudo ./idlestat --trace -f /tmp/myoutput -t 10 -- cyclictest -t 4 -i 2000 -q -D 5
