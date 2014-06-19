@@ -434,9 +434,10 @@ static struct cpufreq_pstates *build_pstate_info(int nrcpus)
 		nrfreq = 0;
 		pstate = NULL;
 		while ((freq = strtok(freq, "\n ")) != NULL) {
-			pstate = realloc(pstate, sizeof(*pstate) * (nrfreq+1));
-			if (!pstate)
+			struct cpufreq_pstate *tmp = realloc(pstate, sizeof(*pstate) * (nrfreq+1));
+			if (!tmp)
 				goto clean_exit;
+			pstate = tmp;
 
 			/* initialize pstate record */
 			pstate[nrfreq].id = nrfreq;
