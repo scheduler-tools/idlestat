@@ -1251,8 +1251,10 @@ int main(int argc, char *argv[], char *const envp[])
 		read_sysfs_cpu_topo();
 
 		/* Stop tracing (just in case) */
-		if (idlestat_trace_enable(false))
+		if (idlestat_trace_enable(false)) {
+			fprintf(stderr, "idlestat requires kernel Ftrace and debugfs mounted on /sys/kernel/debug\n");
 			return -1;
+		}
 
 		/* Initialize the traces for cpu_idle and increase the
 		 * buffer size to let 'idlestat' to sleep instead of
