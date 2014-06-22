@@ -715,7 +715,7 @@ static int store_irq(int cpu, int irqid, char *irqname,
 #define TRACE_IPIIRQ_FORMAT "%*[^[][%d] %*[^=]=%d%*[^=]=%16s"
 
 #define TRACE_CMD_FORMAT "%*[^]]] %lf:%*[^=]=%u%*[^=]=%d"
-#define TRACE_FORMAT "%*[^]]] %*s %lf:%*[^=]=%u%*[^=]=%u"
+#define TRACE_FORMAT "%*[^]]]%*[^0-9] %lf:%*[^=]=%u%*[^=]=%u"
 
 static int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer, int count)
 {
