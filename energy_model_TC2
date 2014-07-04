@@ -1,0 +1,40 @@
+# Lines starting with # or which are blank are ignored
+clusters 2
+
+#
+clusterA: 8 cap states 1 C states
+
+P-states:
+# speed, cluster power, core power
+# in some cases we also might need cpu power (?)
+1200	15200	6997
+1100	11426	5177
+1000	 8446	3846
+ 900	 8265	3524
+ 800	 8195	3125
+ 700	 8172	2756
+ 600	 8165	2312
+ 500	 7920	2021
+
+C-states:
+C1	25	0
+
+wakeup	210	5
+
+#
+clusterB: 8 cap states 1 C states
+
+P-states:
+1000	4905	1024
+ 900	3917	 761
+ 800	2847	 549
+ 700	2919	 447
+ 600	2815	 407
+ 500	2810	 334
+ 400	2792	 275
+ 350	2967	 187
+
+C-states:
+C1	10	0
+
+wakeup	 6	0
