@@ -392,6 +392,7 @@ static struct cpuidle_cstates *build_cstate_info(int nrcpus)
 	for (cpu = 0; cpu < nrcpus; cpu++) {
 		int i;
 		struct cpuidle_cstate *c;
+
 		cstates[cpu].cstate_max = -1;
 		cstates[cpu].last_cstate = -1;
 		for (i = 0; i < MAXCSTATE; i++) {
@@ -782,8 +783,8 @@ static int store_irq(int cpu, int irqid, char *irqname,
 #define TRACE_IRQ_FORMAT "%*[^[][%d] %*[^=]=%d%*[^=]=%16s"
 #define TRACE_IPIIRQ_FORMAT "%*[^[][%d] %*[^=]=%d%*[^=]=%16s"
 
-#define TRACE_CMD_FORMAT "%*[^]]] %lf:%*[^=]=%u%*[^=]=%d"
-#define TRACE_FORMAT "%*[^]]]%*[^0-9] %lf:%*[^=]=%u%*[^=]=%u"
+#define TRACECMD_REPORT_FORMAT "%*[^]]] %lf:%*[^=]=%u%*[^=]=%d"
+#define TRACE_FORMAT "%*[^]]] %*s %lf:%*[^=]=%u%*[^=]=%d"
 
 static int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer, int count)
 {
@@ -809,7 +810,7 @@ static int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer, int count)
 	return -1;
 }
 
-static struct cpuidle_datas *idlestat_load(const char *path)
+static struct cpuidle_datas *idlestat_load(struct program_options *options)
 {
 	FILE *f;
 	unsigned int state = 0, freq = 0, cpu = 0, nrcpus = 0;
@@ -818,17 +819,34 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 	struct cpuidle_datas *datas;
 	int ret;
 
-	f = fopen(path, "r");
+	f = fopen(options->filename, "r");
 	if (!f) {
-		fprintf(stderr, "%s: failed to open '%s': %m\n", __func__, path);
+		fprintf(stderr, "%s: failed to open '%s': %m\n", __func__,
+					options->filename);
 		return NULL;
 	}
 
 	/* version line */
 	fgets(buffer, BUFSIZE, f);
-
-	fgets(buffer, BUFSIZE, f);
-	assert(sscanf(buffer, "cpus=%u", &nrcpus) == 1);
+	if (strstr(buffer, "idlestat")) {
+		options->format = IDLESTAT_HEADER;
+		fgets(buffer, BUFSIZE, f);
+		assert(sscanf(buffer, "cpus=%u", &nrcpus) == 1);
+		fgets(buffer, BUFSIZE, f);
+	} else if (strstr(buffer, "# tracer")) {
+		options->format = TRACE_CMD_HEADER;
+		while(!feof(f)) {
+			if (buffer[0] != '#')
+				break;
+			if (strstr(buffer, "#P:"))
+				assert(sscanf(buffer, "#%*[^#]#P:%u", &nrcpus) == 1);
+			fgets(buffer, BUFSIZE, f);
+		}
+	} else {
+		fprintf(stderr, "%s: unrecognized import format in '%s'\n",
+				__func__, options->filename);
+		return NULL;
+	}
 
 	if (!nrcpus) {
 		fclose(f);
@@ -857,8 +875,6 @@ static struct cpuidle_datas *idlestat_load(const char *path)
 	}
 
 	datas->nrcpus = nrcpus;
-
-	fgets(buffer, BUFSIZE, f);
 
 	/* read topology information */
 	read_cpu_topo_info(f, buffer);
@@ -911,7 +927,7 @@ struct cpuidle_datas *cluster_data(struct cpuidle_datas *datas)
 		return NULL;
 
 	result->nrcpus = -1; /* the cluster */
-
+	result->pstates = NULL;
 	result->cstates = calloc(sizeof(*result->cstates), 1);
 	if (!result->cstates) {
 		free(result);
@@ -1043,20 +1059,6 @@ static void version(const char *cmd)
 	printf("%s version %s\n", basename(cmd), IDLESTAT_VERSION);
 }
 
-enum modes {
-  TRACE=1,
-  IMPORT
-};
-
-struct program_options {
-	bool debug;
-	bool dump;
-	int iterations;
-	int mode;
-	unsigned int duration;
-	char *filename;
-};
-
 int getoptions(int argc, char *argv[], struct program_options *options)
 {
 	struct option long_options[] = {
@@ -1075,7 +1077,8 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 
 	memset(options, 0, sizeof(*options));
 	options->filename = NULL;
-
+	options->mode = -1;
+	options->format = -1;
 	while (1) {
 
 		int optindex = 0;
@@ -1127,7 +1130,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 	if (options->iterations < 0)
 		fprintf(stderr, "dump values must be a positive value\n");
 
-	if (options->mode <= 0) {
+	if (options->mode < 0) {
 		fprintf(stderr, "select a mode: --trace or --import\n");
 		return -1;
 	}
@@ -1190,7 +1193,7 @@ static int idlestat_store(const char *path)
 		return -1;
 	}
 
-	fprintf(f, "version = %s\n", IDLESTAT_VERSION);
+	fprintf(f, "idlestat version = %s\n", IDLESTAT_VERSION);
 	fprintf(f, "cpus=%d\n", ret);
 
 	/* output topology information */
@@ -1370,7 +1373,8 @@ int main(int argc, char *argv[], char *const envp[])
 	}
 
 	/* Load the idle states information */
-	datas = idlestat_load(options.filename);
+	datas = idlestat_load(&options);
+
 	if (!datas)
 		return 1;
 

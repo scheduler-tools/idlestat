@@ -116,4 +116,25 @@ struct cpuidle_datas {
 	int nrcpus;
 };
 
+enum modes {
+	TRACE = 0,
+	IMPORT
+};
+
+enum formats {
+	IDLESTAT_HEADER = 0,
+	TRACE_CMD_HEADER
+};
+
+struct program_options {
+	bool debug;
+	bool dump;
+	int iterations;
+	int mode;
+	int format;
+	unsigned int duration;
+	char *filename;
+};
+
+
 #endif
