@@ -29,6 +29,7 @@
 #define TRACE_CPUIDLE_EVENT_PATH TRACE_PATH "/events/power/cpu_idle/enable"
 #define TRACE_CPUFREQ_EVENT_PATH TRACE_PATH "/events/power/cpu_frequency/enable"
 #define TRACE_IRQ_EVENT_PATH TRACE_PATH "/events/irq/enable"
+#define TRACE_IPI_EVENT_PATH TRACE_PATH "/events/ipi/enable"
 #define TRACE_EVENT_PATH TRACE_PATH "/events/enable"
 #define TRACE_FREE TRACE_PATH "/free_buffer"
 #define TRACE_FILE TRACE_PATH "/trace"

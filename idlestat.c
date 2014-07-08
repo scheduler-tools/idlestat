@@ -99,8 +99,16 @@ static int display_states(struct cpuidle_cstates *cstates,
 {
 	int j;
 
-	printf("%s@state\thits\t      total(us)\t\tavg(us)\tmin(us)\t"
-	       "max(us)\n", str);
+	/* If the first C-state does not have target_residency
+	 * chances are pretty high that we dont have it for any node.
+	 */
+	if (cstates->cstate[0].target_residency >= 0)
+		printf("%s@state     hits\tover\tunder\t\ttotal(us)\tavg(us)\tmin(us)\tmax(us)\n",
+			str);
+	else
+		printf("%s@state     hits\t\ttotal(us)\tavg(us)\tmin(us)\tmax(us)\n",
+			str);
+
 	for (j = 0; j < cstates->cstate_max + 1; j++) {
 		struct cpuidle_cstate *c = &cstates->cstate[j];
 
@@ -108,12 +116,25 @@ static int display_states(struct cpuidle_cstates *cstates,
 			/* nothing to report for this state */
 			continue;
 
-		printf("%*c %s\t%d\t%15.2lf\t%15.2lf\t%.2lf\t%.2lf\n",
-			(int)strlen(str), ' ',
-			c->name, c->nrdata, c->duration,
-			c->avg_time,
-			(c->min_time == DBL_MAX ? 0. : c->min_time),
-			c->max_time);
+		if (c->target_residency >= 0) {
+			printf("%*c %-10s%d\t%d\t%d\t%15.2lf\t%15.2lf\t%.2lf\t%.2lf\n",
+				(int)strlen(str), ' ',
+				c->name, c->nrdata,
+				c->premature_wakeup,
+				c->could_sleep_more,
+				c->duration,
+				c->avg_time,
+				(c->min_time == DBL_MAX ? 0. : c->min_time),
+				c->max_time);
+		} else {
+			printf("%*c %-10s%d\t%15.2lf\t%15.2lf\t%.2lf\t%.2lf\n",
+				(int)strlen(str), ' ',
+				c->name, c->nrdata,
+				c->duration,
+				c->avg_time,
+				(c->min_time == DBL_MAX ? 0. : c->min_time),
+				c->max_time);
+		}
 	}
 
 	if (pstates) {
@@ -124,7 +145,7 @@ static int display_states(struct cpuidle_cstates *cstates,
 				/* nothing to report for this state */
 				continue;
 
-			printf("%*c %d\t%d\t%15.2lf\t%15.2lf\t%.2lf\t%.2lf\n",
+			printf("%*c %-10d\t%d\t%15.2lf\t%15.2lf\t%.2lf\t%.2lf\n",
 				(int)strlen(str), ' ',
 				p->freq/1000, p->count, p->duration,
 				p->avg_time,
@@ -136,13 +157,14 @@ static int display_states(struct cpuidle_cstates *cstates,
 	if (strstr(str, IRQ_WAKEUP_UNIT_NAME)) {
 		struct wakeup_info *wakeinfo = &cstates->wakeinfo;
 		struct wakeup_irq *irqinfo = wakeinfo->irqinfo;
-		printf("%s wakeups \tname \t\tcount\n", str);
+		printf("%s wakeups \tname \t\tcount\tunexpected\n", str);
 		for (j = 0; j < wakeinfo->nrdata; j++, irqinfo++) {
-			printf("%*c %s%03d\t%-15.15s\t%d\n", (int)strlen(str),
+			printf("%*c %s%03d\t%-15.15s\t%d\t%d\n", (int)strlen(str),
 				' ',
 				(irqinfo->irq_type < IRQ_TYPE_MAX) ?
 				irq_type_name[irqinfo->irq_type] : "NULL",
-				irqinfo->id, irqinfo->name, irqinfo->count);
+				irqinfo->id, irqinfo->name, irqinfo->count,
+				irqinfo->not_predicted);
 		}
 	}
 
@@ -267,9 +289,6 @@ static struct cpuidle_cstate *inter(struct cpuidle_cstate *c1,
 	return result;
 }
 
-#define CPUIDLE_STATENAME_PATH_FORMAT \
-	"/sys/devices/system/cpu/cpu%d/cpuidle/state%d/name"
-
 static char *cpuidle_cstate_name(int cpu, int state)
 {
 	char *fpath, *name;
@@ -323,6 +342,35 @@ static void release_cstate_info(struct cpuidle_cstates *cstates, int nrcpus)
 	free(cstates);
 }
 
+
+/**
+* cpuidle_get_target_residency - return the target residency of a c-state
+* @cpu: cpuid
+* @state: c-state number
+*/
+int cpuidle_get_target_residency(int cpu, int state)
+{
+	char *fpath;
+	unsigned int tr;
+	FILE *snf;
+
+	if (asprintf(&fpath, CPUIDLE_STATE_TARGETRESIDENCY_PATH_FORMAT,
+				cpu, state) < 0)
+		return -1;
+
+	/* read cpuidle state name for the CPU */
+	snf = fopen(fpath, "r");
+	if (!snf) {
+		/* file not found, or other error */
+		free(fpath);
+		return -1;
+	}
+	fscanf(snf, "%u", &tr);
+	fclose(snf);
+
+	return tr;
+}
+
 /**
  * build_cstate_info - parse cpuidle sysfs entries and build per-CPU
  * structs to maintain statistics of C-state transitions
@@ -351,17 +399,17 @@ static struct cpuidle_cstates *build_cstate_info(int nrcpus)
 			c->name = cpuidle_cstate_name(cpu, i);
 			c->data = NULL;
 			c->nrdata = 0;
+			c->premature_wakeup = 0;
 			c->avg_time = 0.;
 			c->max_time = 0.;
 			c->min_time = DBL_MAX;
 			c->duration = 0.;
+			c->target_residency =
+				cpuidle_get_target_residency(cpu, i);
 		}
 	}
 	return cstates;
 }
-
-#define CPUFREQ_AVFREQ_PATH_FORMAT \
-	"/sys/devices/system/cpu/cpu%d/cpufreq/scaling_available_frequencies"
 
 /**
  * release_pstate_info - free all P-state related structs
@@ -594,6 +642,7 @@ static int store_data(double time, int state, int cpu,
 	struct cpuidle_cstate *cstate;
 	struct cpuidle_data *data, *tmp;
 	int nrdata, last_cstate = cstates->last_cstate;
+	int next_cstate;
 
 	/* ignore when we got a "closing" state first */
 	if (state == -1 && cstates->cstate_max == -1)
@@ -619,6 +668,23 @@ static int store_data(double time, int state, int cpu,
 
 		/* convert to us */
 		data->duration *= USEC_PER_SEC;
+		cstates->not_predicted = 0;
+		if (data->duration < cstate->target_residency) {
+			/* over estimated */
+			cstate->premature_wakeup++;
+			cstates->not_predicted = 1;
+		} else {
+			/* under estimated */
+			unsigned int tr;
+
+			next_cstate = ((last_cstate + 1) <= cstates->cstate_max)
+					? last_cstate + 1 : 0;
+			if (next_cstate > 0) {
+				tr = cstates->cstate[next_cstate].target_residency;
+				if ((tr > 0) && (data->duration >= tr))
+					cstate->could_sleep_more++;
+			}
+		}
 
 		cstate->min_time = MIN(cstate->min_time, data->duration);
 
@@ -655,7 +721,6 @@ static int store_data(double time, int state, int cpu,
 	cstates->cstate_max = MAX(cstates->cstate_max, state);
 	cstates->last_cstate = state;
 	cstates->wakeirq = NULL;
-
 	/* update P-state stats if supported */
 	if (pstate)
 		cpu_pstate_idle(datas, cpu, time);
@@ -702,11 +767,14 @@ static int store_irq(int cpu, int irqid, char *irqname,
 		irqinfo->name[sizeof(irqinfo->name) - 1] = '\0';
 		irqinfo->irq_type = irq_type;
 		irqinfo->count = 0;
+		irqinfo->not_predicted = 0;
 	}
 
 	irqinfo->count++;
 
 	cstates->wakeirq = irqinfo;
+	if (cstates->not_predicted)
+		cstates->wakeirq->not_predicted++;
 
 	return 0;
 }

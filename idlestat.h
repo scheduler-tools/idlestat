@@ -37,6 +37,13 @@
 
 #define IRQ_WAKEUP_UNIT_NAME "cpu"
 
+#define CPUIDLE_STATE_TARGETRESIDENCY_PATH_FORMAT \
+	"/sys/devices/system/cpu/cpu%d/cpuidle/state%d/residency"
+#define CPUFREQ_AVFREQ_PATH_FORMAT \
+	"/sys/devices/system/cpu/cpu%d/cpufreq/scaling_available_frequencies"
+#define CPUIDLE_STATENAME_PATH_FORMAT \
+	"/sys/devices/system/cpu/cpu%d/cpuidle/state%d/name"
+
 struct cpuidle_data {
 	double begin;
 	double end;
@@ -47,10 +54,13 @@ struct cpuidle_cstate {
 	char *name;
 	struct cpuidle_data *data;
 	int nrdata;
+	int premature_wakeup;
+	int could_sleep_more;
 	double avg_time;
 	double max_time;
 	double min_time;
 	double duration;
+	int target_residency; /* -1 if not available */
 };
 
 enum IRQ_TYPE {
@@ -64,6 +74,7 @@ struct wakeup_irq {
 	int irq_type;
 	char name[NAMELEN+1];
 	int count;
+	int not_predicted;
 };
 
 struct wakeup_info {
@@ -77,6 +88,7 @@ struct cpuidle_cstates {
 	int last_cstate;
 	int cstate_max;
 	struct wakeup_irq *wakeirq;
+	int not_predicted;
 };
 
 struct cpufreq_pstate {
