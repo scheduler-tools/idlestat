@@ -584,6 +584,12 @@ static void cpu_change_pstate(struct cpuidle_datas *datas, int cpu,
 	}
 }
 
+static bool cpu_pstate_assigned(struct cpuidle_datas *datas, int cpu)
+{
+	struct cpufreq_pstates *ps = &(datas->pstates[cpu]);
+	return ps->current != -1;
+}
+
 static void cpu_pstate_idle(struct cpuidle_datas *datas, int cpu, double time)
 {
 	struct cpufreq_pstates *ps = &(datas->pstates[cpu]);
@@ -819,6 +825,10 @@ struct cpuidle_datas *idlestat_load(const char *path)
 			assert(sscanf(buffer, TRACE_FORMAT, &time, &state,
 				      &cpu) == 3);
 
+			/* Ignore events if a P-State as not yet been identified */
+			if (!cpu_pstate_assigned(datas, cpu))
+				continue;
+
 			if (start) {
 				begin = time;
 				start = 0;
@@ -831,6 +841,11 @@ struct cpuidle_datas *idlestat_load(const char *path)
 		} else if (strstr(buffer, "cpu_frequency")) {
 			assert(sscanf(buffer, TRACE_FORMAT, &time, &freq,
 				      &cpu) == 3);
+
+			/* Ignore events if a P-State as not yet been identified */
+			if (!cpu_pstate_assigned(datas, cpu))
+				continue;
+
 			assert(datas->pstates[cpu].pstate != NULL);
 			cpu_change_pstate(datas, cpu, freq, time);
 			count++;
