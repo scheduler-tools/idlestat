@@ -238,6 +238,14 @@ static struct cpuidle_cstate *inter(struct cpuidle_cstate *c1,
 			if (!interval)
 				continue;
 
+			print_vrb("Intersect [%s: %.6f-%.6f] with [%s: %.6f-%.6f] => %.6f-%.6f (+%.6f)\n",
+					c1->name,
+					c1->data[i].begin, c1->data[i].end,
+					c2->name,
+					c2->data[j].begin, c2->data[j].end,
+					interval->begin, interval->end,
+					interval->duration);
+
 			result->min_time = MIN(result->min_time,
 					       interval->duration);
 
@@ -639,6 +647,10 @@ static int store_data(double time, int state, int cpu,
 		/* need indication if CPU is idle or not */
 		cstates->last_cstate = -1;
 
+		print_vrb("  Cpu%d: %f - %f => %12.1f, total[%6s]: %12.1f\n",
+			cpu, data->end, data->begin, data->duration,
+			cstate->name, cstate->duration);
+
 		/* update P-state stats if supported */
 		if (pstate)
 			cpu_pstate_running(datas, cpu, time);
@@ -887,9 +899,12 @@ struct cpuidle_cstates *core_cluster_data(struct cpu_core *s_core)
 	int i;
 	int cstate_max = -1;
 
-	if (!s_core->is_ht)
-		list_for_each_entry(s_cpu, &s_core->cpu_head, list_cpu)
+	if (!s_core->is_ht) {
+		list_for_each_entry(s_cpu, &s_core->cpu_head, list_cpu) {
+			print_vrb("Cpu%d is NOT HT: CoreCstates == CpuCstates\n", s_cpu->cpu_id);
 			return s_cpu->cstates;
+		}
+	}
 
 	result = calloc(sizeof(*result), 1);
 	if (!result)
@@ -1317,6 +1332,7 @@ int main(int argc, char *argv[], char *const envp[])
 	 * the same cluster
 	 */
 	if (0 == establish_idledata_to_topo(datas)) {
+		print_vrb("Compute idle data intersections...\n");
 		if (options.dump > 0)
 			dump_cpu_topo_info(options.iterations, dump_states);
 		else
