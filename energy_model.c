@@ -7,6 +7,7 @@
 #include "idlestat.h"
 #include "topology.h"
 #include "list.h"
+#include "utils.h"
 
 static char buffer[BUFSIZE];
 
@@ -270,19 +271,35 @@ void calculate_energy_consumption(void)
 		cluster_cstate_count = 0;
 		clustp = cluster_energy_table + current_cluster;
 
+		print_vrb("\n\nCluster%c\n", 'A'+current_cluster);
+
 		/* All C-States on current Cluster */
 
 		for (j = 0; j < s_phy->cstates->cstate_max + 1; j++) {
 			struct cpuidle_cstate *c = &s_phy->cstates->cstate[j];
 
-			if (c->nrdata == 0)
+			if (c->nrdata == 0) {
+				print_vrb("      C%d no data for [%s]\n",
+						j, c->name);
 				continue;
+			}
+
 			cp = find_cstate_energy_info(current_cluster, c->name);
-			if (!cp)
+			if (!cp) {
+				print_vrb("      C%d no energy model for [%s] (%d hits, %f duration)\n",
+						j, c->name, c->nrdata, c->duration);
 				continue;
+			}
 			cluster_cstate_count += c->nrdata;
 			cp->cluster_duration = c->duration;
 			energy_from_idle += c->duration * cp->cluster_idle_power;
+
+			print_vrb("      C%d +%6d hits for [%s] => %d, cd %f, efi %f\n",
+					j, c->nrdata, c->name,
+					cluster_cstate_count,
+					cp->cluster_duration,
+					energy_from_idle);
+
 		}
 
 		/* All C-States and P-States for the CPUs on current Cluster */
@@ -299,12 +316,26 @@ void calculate_energy_consumption(void)
 
 				for (i = 0; i < s_cpu->cstates->cstate_max + 1; i++) {
 					struct cpuidle_cstate *c = &s_cpu->cstates->cstate[i];
-					if (c->nrdata == 0)
+					if (c->nrdata == 0) {
+						print_vrb("Cpu%d, C%d no data for [%s]\n",
+							s_cpu->cpu_id, i, c->name);
 						continue;
+					}
 					cp = find_cstate_energy_info(current_cluster, c->name);
-					if (!cp)
+					if (!cp) {
+						print_vrb("Cpu%d, C%d no energy model for [%s] (%d hits, %f duration)\n",
+							s_cpu->cpu_id, i, c->name,
+							c->nrdata, c->duration);
 						continue;
+					}
 					energy_from_idle += (c->duration - cp->cluster_duration) * cp->core_idle_power;
+
+					print_vrb("Cpu%d, C%d +%6d hits for [%s] => %d, cd %f, efi %f\n",
+							s_cpu->cpu_id, i, c->nrdata, c->name,
+							cluster_cstate_count,
+							cp->cluster_duration,
+							energy_from_idle);
+
 				}
 
 				/* All P-States of current CPU */
@@ -312,13 +343,25 @@ void calculate_energy_consumption(void)
 				for (i = 0; i < s_cpu->pstates->max; i++) {
 					struct cpufreq_pstate *p = &s_cpu->pstates->pstate[i];
 
-					if (p->count == 0)
+					if (p->count == 0) {
+						print_vrb("Cpu%d, P%d no data for [%d]\n",
+							s_cpu->cpu_id, i, p->freq/1000);
 						continue;
+					}
 					pp = find_pstate_energy_info(current_cluster, p->freq/1000);
-					if (!pp)
+					if (!pp) {
+						print_vrb("Cpu%d, P%d no energy model for [%d] (%d hits, %f duration)\n",
+							s_cpu->cpu_id, i, p->freq/1000,
+							p->count, p->duration);
 						continue;
+					}
 					pp->max_core_duration = MAX(p->duration, pp->max_core_duration);
 					energy_from_cap_states += p->duration * pp->core_power;
+
+					print_vrb("Cpu%d, P%d +%6d hits for [%d], pd %10.2f * cp %10d +=> %e\n",
+							s_cpu->cpu_id, i, p->count, p->freq/1000,
+							p->duration, pp->core_power,
+							energy_from_cap_states);
 				}
 			}
 		}
@@ -330,6 +373,11 @@ void calculate_energy_consumption(void)
 		for (i = 0; i < clustp->number_cap_states; i++) {
 			pp = &clustp->p_energy[i];
 			energy_from_cap_states += pp->max_core_duration * pp->cluster_power;
+
+			print_vrb("      P%d estimate for [%d], md %10.2f * cp %10d +=> %e\n",
+					i, pp->speed/1000,
+					pp->max_core_duration, pp->cluster_power,
+					energy_from_cap_states);
 		}
 	}
 	printf("\n");
