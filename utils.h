@@ -27,6 +27,20 @@
 #ifndef __UTILS_H
 #define __UTILS_H
 
+#include <stdbool.h>
+
+/* Program Configuration Options */
+struct program_options {
+	bool debug;
+	bool dump;
+	int iterations;
+	int mode;
+	unsigned int duration;
+	char *filename;
+	char *energy_model_filename;
+};
+extern struct program_options options;
+
 extern int write_int(const char *path, int val);
 extern int read_int(const char *path, int *val);
 extern int store_line(const char *line, void *data);

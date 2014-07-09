@@ -50,6 +50,9 @@
 #define IDLESTAT_VERSION "0.4-rc1"
 #define USEC_PER_SEC 1000000
 
+/* Configuration Options */
+struct program_options options;
+
 static char irq_type_name[][8] = {
 			"irq",
 			"ipi",
@@ -981,16 +984,6 @@ enum modes {
   IMPORT
 };
 
-struct program_options {
-	bool debug;
-	bool dump;
-	int iterations;
-	int mode;
-	unsigned int duration;
-	char *filename;
-	char *energy_model_filename;
-};
-
 int getoptions(int argc, char *argv[], struct program_options *options)
 {
 	struct option long_options[] = {
@@ -1241,7 +1234,6 @@ int main(int argc, char *argv[], char *const envp[])
 {
 	struct cpuidle_datas *datas;
 	struct cpuidle_datas *cluster;
-	struct program_options options;
 	struct rusage rusage;
 	int args;
 
