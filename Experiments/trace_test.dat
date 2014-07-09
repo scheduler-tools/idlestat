@@ -1,0 +1,26 @@
+version = 0.4-rc1
+cpus=5
+clusterA:
+	core0
+		cpu1
+	core1
+		cpu2
+clusterB:
+	core0
+		cpu0
+	core1
+		cpu3
+	core2
+		cpu4
+          <idle>-0     [001] d...  0.000000: cpu_idle: state=0 cpu_id=1
+          <idle>-0     [002] d...  0.000000: cpu_idle: state=0 cpu_id=2
+          <idle>-0     [001] d...  0.000100: cpu_idle: state=4294967295 cpu_id=1
+          <idle>-0     [002] d...  0.000200: cpu_idle: state=4294967295 cpu_id=2
+          <idle>-0     [001] d...  0.000110: cpu_idle: state=0 cpu_id=1
+          <idle>-0     [002] d...  0.000210: cpu_idle: state=1 cpu_id=2
+          <idle>-0     [001] d...  0.000320: cpu_idle: state=4294967295 cpu_id=1
+          <idle>-0     [002] d...  0.000400: cpu_idle: state=4294967295 cpu_id=2
+          <idle>-0     [001] d...  0.000350: cpu_idle: state=1 cpu_id=1
+          <idle>-0     [001] d...  0.000400: cpu_idle: state=4294967295 cpu_id=1
+          <idle>-0     [002] d...  0.000410: cpu_idle: state=0 cpu_id=2
+          <idle>-0     [002] d...  0.000500: cpu_idle: state=4294967295 cpu_id=2
