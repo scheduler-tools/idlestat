@@ -512,6 +512,13 @@ static int freq_to_pstate_index(struct cpufreq_pstates *ps, unsigned int freq)
 	return i >= ps->max ? -1 : ps->pstate[i].id;
 }
 
+static void open_initial_pstate(struct cpufreq_pstates *ps, int s, double time)
+{
+	ps->current = s;
+	ps->time_enter = time;
+	ps->idle = 0;
+}
+
 static void open_current_pstate(struct cpufreq_pstates *ps, double time)
 {
 	ps->time_enter = time;
@@ -565,7 +572,7 @@ static void cpu_change_pstate(struct cpuidle_datas *datas, int cpu,
 
 	case -1:
 		/* current pstate is -1, i.e. this is the first update */
-		open_next_pstate(ps, next, time);
+		open_initial_pstate(ps, next, time);
 		return;
 
 	case 0:
@@ -847,6 +854,15 @@ struct cpuidle_datas *idlestat_load(const char *path)
 				continue;
 
 			assert(datas->pstates[cpu].pstate != NULL);
+			cpu_change_pstate(datas, cpu, freq, time);
+			count++;
+			continue;
+		}
+
+		if (strstr(buffer, "idlestat_frequency:")) {
+			assert(sscanf(buffer, TRACE_FORMAT, &time, &freq,
+					&cpu) == 3);
+			/* Assign intial P-State */
 			cpu_change_pstate(datas, cpu, freq, time);
 			count++;
 			continue;
