@@ -1205,10 +1205,11 @@ static int idlestat_trace_freq(int trace_fd, int cpu) {
 	return 0;
 }
 
-static int idlestat_wake_all(void)
+static int idlestat_wake_all(bool start)
 {
 	int rcpu, i, ret;
 	cpu_set_t cpumask;
+	int trace_fd;
 
 	ret = sysconf(_SC_NPROCESSORS_CONF);
 	if (ret < 0)
@@ -1218,6 +1219,14 @@ static int idlestat_wake_all(void)
 	if (rcpu < 0)
 		return -1;
 
+	/*  FTrace marker */
+	trace_fd = open("/sys/kernel/debug/tracing/trace_marker", O_WRONLY);
+	if (trace_fd < 0) {
+		fprintf(stderr, "FTrace marker open FAILED (Error: %s)",
+			strerror(errno));
+		return -1;
+	}
+
 	for (i = 0; i < ret; i++) {
 
 
@@ -1225,7 +1234,14 @@ static int idlestat_wake_all(void)
 		CPU_SET(i, &cpumask);
 
 		sched_setaffinity(0, sizeof(cpumask), &cpumask);
+
+		/* Report current P-State once pinned on each CPU */
+		if (start && idlestat_trace_freq(trace_fd, i) < 0)
+			return -1;
+
 	}
+
+	close(trace_fd);
 
 	return 0;
 }
@@ -1343,7 +1359,7 @@ int main(int argc, char *argv[], char *const envp[])
 		/* We want to prevent to begin the acquisition with a cpu in
 		 * idle state because we won't be able later to close the
 		 * state and to determine which state it was. */
-		if (idlestat_wake_all())
+		if (idlestat_wake_all(true))
 			return -1;
 
 		/* Execute the command or wait a specified delay */
@@ -1351,7 +1367,7 @@ int main(int argc, char *argv[], char *const envp[])
 			return -1;
 
 		/* Wake up all cpus again to account for last idle state */
-		if (idlestat_wake_all())
+		if (idlestat_wake_all(false))
 			return -1;
 
 		/* Stop tracing */
