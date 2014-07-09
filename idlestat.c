@@ -996,6 +996,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		{ "iterations",  required_argument, NULL, 'i' },
 		{ "duration",    required_argument, NULL, 't' },
 		{ "version",     no_argument,       NULL, 'V' },
+		{ "verbose",     no_argument,       NULL, 'v' },
 		{ "dump",        no_argument,       NULL, 'z' },
 		{ 0, 0, 0, 0 }
 	};
@@ -1008,7 +1009,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, ":de:f:hi:t:Vz",
+		c = getopt_long(argc, argv, ":de:f:hi:t:Vvz",
 				long_options, &optindex);
 		if (c == -1)
 			break;
@@ -1036,6 +1037,9 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		case 'V':
 			version(argv[0]);
 			exit(0);
+			break;
+		case 'v':
+			options->verbose = true;
 			break;
 		case 'z':
 			options->dump = true;

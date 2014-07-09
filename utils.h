@@ -32,6 +32,7 @@
 /* Program Configuration Options */
 struct program_options {
 	bool debug;
+	bool verbose;
 	bool dump;
 	int iterations;
 	int mode;
@@ -40,6 +41,11 @@ struct program_options {
 	char *energy_model_filename;
 };
 extern struct program_options options;
+
+#define print_vrb(fmt, ...) 			\
+if (options.verbose) {				\
+	fprintf(stderr, fmt, ##__VA_ARGS__);	\
+}
 
 extern int write_int(const char *path, int val);
 extern int read_int(const char *path, int *val);
