@@ -1267,6 +1267,11 @@ static int idlestat_wake_all(bool start)
 	if (rcpu < 0)
 		return -1;
 
+	if (ret > 256) {
+		fprintf(stderr, "Error: missing P-State identification support with >256 CPUs");
+		return -1;
+	}
+
 	/*  FTrace marker */
 	trace_fd = open("/sys/kernel/debug/tracing/trace_marker", O_WRONLY);
 	if (trace_fd < 0) {
