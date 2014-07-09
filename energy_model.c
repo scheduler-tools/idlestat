@@ -262,11 +262,16 @@ void calculate_energy_consumption(void)
 	unsigned int cluster_cstate_count;
 	struct cluster_energy_info *clustp;
 
+	/* Contributions are computed per Cluster */
+
 	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head,
 			    list_physical) {
 		current_cluster = s_phy->physical_id;
 		cluster_cstate_count = 0;
 		clustp = cluster_energy_table + current_cluster;
+
+		/* All C-States on current Cluster */
+
 		for (j = 0; j < s_phy->cstates->cstate_max + 1; j++) {
 			struct cpuidle_cstate *c = &s_phy->cstates->cstate[j];
 
@@ -279,10 +284,19 @@ void calculate_energy_consumption(void)
 			cp->cluster_duration = c->duration;
 			energy_from_idle += c->duration * cp->cluster_idle_power;
 		}
+
+		/* All C-States and P-States for the CPUs on current Cluster */
+
 		energy_from_wakeups += (1 << 10) * cluster_cstate_count * clustp->wakeup_energy.cluster_wakeup_energy;
 		list_for_each_entry(s_core, &s_phy->core_head, list_core) {
+
+			/* On big.LITTLE every Core has just one CPU */
+
 			list_for_each_entry(s_cpu, &s_core->cpu_head,
 					    list_cpu) {
+
+				/* All C-States of current CPU */
+
 				for (i = 0; i < s_cpu->cstates->cstate_max + 1; i++) {
 					struct cpuidle_cstate *c = &s_cpu->cstates->cstate[i];
 					if (c->nrdata == 0)
@@ -292,6 +306,9 @@ void calculate_energy_consumption(void)
 						continue;
 					energy_from_idle += (c->duration - cp->cluster_duration) * cp->core_idle_power;
 				}
+
+				/* All P-States of current CPU */
+
 				for (i = 0; i < s_cpu->pstates->max; i++) {
 					struct cpufreq_pstate *p = &s_cpu->pstates->pstate[i];
 
