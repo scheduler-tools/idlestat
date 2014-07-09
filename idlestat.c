@@ -27,13 +27,16 @@
 #define _GNU_SOURCE
 #include <errno.h>
 #include <getopt.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <sched.h>
 #include <string.h>
+#include <fcntl.h>
 #include <float.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/resource.h>
@@ -1156,6 +1159,50 @@ static int idlestat_store(const char *path)
 	fclose(f);
 
 	return ret;
+}
+
+static void idlestat_mark_trace(int trace_fd, const char *fmt, ...)
+{
+	va_list ap;
+	char buf[256];
+	int n;
+
+	va_start(ap, fmt);
+	n = vsnprintf(buf, 256, fmt, ap);
+	va_end(ap);
+
+	write(trace_fd, buf, n);
+}
+
+static int idlestat_trace_freq(int trace_fd, int cpu) {
+	char pstate_fn[] = "/sys/devices/system/cpu/cpu256/cpufreq/scaling_cur_freq";
+	char freq_buff[] = "0123456789";
+	ssize_t result;
+	int state_fd;
+	int freq;
+
+	if (cpu > 256)
+		return -1;
+
+	sprintf(pstate_fn+27, "%d/cpufreq/scaling_cur_freq", cpu);
+	state_fd = open(pstate_fn, O_RDONLY);
+	if (state_fd < 0) {
+		fprintf(stderr, "CPU_%d frequency read FAILED (Error: %s)",
+				cpu, strerror(errno));
+		return -1;
+	}
+	result = read(state_fd, (void *)freq_buff, sizeof(freq_buff));
+	if (result < 0) {
+		fprintf(stderr, "CPU_%d frequency read FAILED (Error: %s)",
+				cpu, strerror(errno));
+		return -1;
+	}
+	freq = atoi(freq_buff);
+	print_vrb("CPU_%03d running @ %d Hz\n", cpu, freq);
+	idlestat_mark_trace(trace_fd, "idlestat_frequency: state=%d cpu_id=%d\n", freq, cpu);
+
+	close(state_fd);
+	return 0;
 }
 
 static int idlestat_wake_all(void)
