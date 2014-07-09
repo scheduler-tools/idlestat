@@ -1173,9 +1173,6 @@ static int idlestat_wake_all(void)
 
 	for (i = 0; i < ret; i++) {
 
-		/* Pointless to wake up ourself */
-		if (i == rcpu)
-			continue;
 
 		CPU_ZERO(&cpumask);
 		CPU_SET(i, &cpumask);
