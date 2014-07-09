@@ -101,6 +101,8 @@ struct cpufreq_pstates {
 struct cpuidle_datas {
 	struct cpuidle_cstates *cstates;
 	struct cpufreq_pstates *pstates;
+	double profile_start;
+	double profile_end;
 	int nrcpus;
 };
 
