@@ -291,6 +291,9 @@ void calculate_energy_consumption(void)
 				continue;
 			}
 			cluster_cstate_count += c->nrdata;
+			/* NOTE: this keeps track of just the last C-State
+			 * duration... are you assuming this is the C1
+			 * residency time ?!? */
 			cp->cluster_duration = c->duration;
 			energy_from_idle += c->duration * cp->cluster_idle_power;
 
