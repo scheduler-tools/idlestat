@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <limits.h>
 
 #include "utils.h"
 
@@ -130,9 +131,87 @@ struct cluster {
 #define cluster_gplot_idle(CPU) \
 	cluster_status[cluster(CPU)].gnuplot_idle_fd
 
+#define EVENT_IDLE_FORMAT "     idlestat/vex-tc2  [%03d] .... %12.6f: cpu_idle: state=%u cpu_id=%u\n"
 
 #define EVENT_FREQ_FDEBUG "     idlestat/vex-tc2  [%03d] .... %12.6f: %s frequency: state=%u cpu_id=%u\n"
 #define EVENT_IDLE_FDEBUG "     idlestat/vex-tc2  [%03d] .... %12.6f: %s idle: state=%u cpu_id=%u\n"
+
+int get_min_cstate(int *values)
+{
+	int i;
+	int min_cstate = INT_MAX;
+
+	for (i = 0; i < 5; ++i) {
+		/* Disregard CPUs not in that cluster */
+		if (!cpu_idle_valid(i))
+			continue;
+		if (min_cstate > values[i])
+			min_cstate = values[i];
+	}
+
+	return min_cstate;
+}
+
+void switch_cluster_cstate(FILE *f, double time, unsigned int state, unsigned int cpu)
+{
+	int i;
+
+	/* Keep track of new cluster C-State */
+	cluster_cstate(cpu) = state;
+
+	for (i = 0; i < 5; ++i) {
+		/* Disregard CPUs not in that cluster (99) or not idle (-1) */
+		if (cluster_cpu_idle(cluster(cpu), i) == 99 ||
+		    cluster_cpu_idle(cluster(cpu), i) == -1)
+			continue;
+		/* This is for sure:
+		 * - a CPU of this cluster
+		 * - which is idle
+		 * => switch event to new cluster idle state */
+		fprintf(f, EVENT_IDLE_FORMAT, i, time, state, i);
+	}
+
+}
+
+/* This is called on C-State enter. Such events are alwasy repored in the output */
+/* trace after having properly tuned the C-State the CPU is entering, which could */
+/* be never higher than the Cluster C-State. */
+void update_cstate(FILE *f, double time, unsigned int state, unsigned int cpu)
+{
+
+	/* Sanity check we update only CPUs of that cluster */
+	assert(cpu_idle(cpu) != 99);
+
+	/* Update PSCI-Proxy C-State for that CPU */
+	cpu_idle(cpu) = state;
+
+	/* C-State EXIT */
+
+	/* Always forwarded on the output trace */
+	if (state == -1) {
+		fprintf(f, EVENT_IDLE_FORMAT, cpu, time, state, cpu);
+		return;
+	}
+
+	/* C-State ENTER */
+
+	/* Mark CPU as idle */
+	cpu_freq(cpu) = 0;
+
+	/* If the CPU is entering a deeper C-State than the cluster one:
+	   => notify just the CPU entering the Cluster idle state */
+	if (cluster_cstate(cpu) == get_min_cstate(cluster_cpus_idle(cpu))) {
+		fprintf(f, EVENT_IDLE_FORMAT, cpu, time, cluster_cstate(cpu), cpu);
+		goto exit_plot;
+	}
+
+	/* The CPU is entering a C-State which is lower than the Cluster one:
+	   => all idle CPUs enters this new higer C-State */
+	switch_cluster_cstate(f, time, state, cpu);
+
+exit_plot:
+	return;
+}
 
 int store_line(const char *line, void *data)
 {
@@ -151,6 +230,9 @@ int store_line(const char *line, void *data)
 		/* Just for debug: report event on the output trace */
 		print_vrb(EVENT_IDLE_FDEBUG, cpu, time, "<<<", state, cpu);
 
+		/* C-State enter are alwasy filtered and repored in output */
+		update_cstate(f, time, state, cpu);
+		return 0;
 	}
 
 	/* Filter CPUFreq events */
