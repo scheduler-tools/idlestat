@@ -169,6 +169,34 @@ int get_max_pstate(int *freqs)
 	return max_pstate;
 }
 
+void dump_psci_proxy_status()
+{
+	int i;
+
+	for (i = 0; i < 2; ++i) {
+		/* CPUs Pstates */
+		print_vrb("Cluster%c P-States, CPUs: {%8d %8d %8d %8d %8d}, Cluster: %8d\n",
+				i ? 'B' : 'A',
+				cluster_status[i].cpu_freq[0],
+				cluster_status[i].cpu_freq[1],
+				cluster_status[i].cpu_freq[2],
+				cluster_status[i].cpu_freq[3],
+				cluster_status[i].cpu_freq[4],
+				cluster_status[i].cluster_pstate
+			 );
+		/* CPUs Cstates */
+		print_vrb("Cluster%c C-States, CPUs: {%8d %8d %8d %8d %8d}, Cluster: %8d\n",
+				i ? 'B' : 'A',
+				cluster_status[i].cpu_idle[0],
+				cluster_status[i].cpu_idle[1],
+				cluster_status[i].cpu_idle[2],
+				cluster_status[i].cpu_idle[3],
+				cluster_status[i].cpu_idle[4],
+				cluster_status[i].cluster_cstate
+			 );
+	}
+}
+
 void switch_cluster_cstate(FILE *f, double time, unsigned int state, unsigned int cpu)
 {
 	int i;
@@ -193,6 +221,8 @@ void switch_cluster_cstate(FILE *f, double time, unsigned int state, unsigned in
 		fprintf(f, EVENT_IDLE_FORMAT, i, time, state, i);
 		print_vrb(EVENT_IDLE_FDEBUG, i, time, ">>>", state, i);
 	}
+
+	dump_psci_proxy_status();
 
 }
 
@@ -259,6 +289,8 @@ void switch_cluster_pstate(FILE *f, double time, unsigned int freq, unsigned int
 		fprintf(f, EVENT_FREQ_FORMAT, i, time, freq, i);
 		print_vrb(EVENT_FREQ_FDEBUG, i, time, ">>>", freq, i);
 	}
+
+	dump_psci_proxy_status();
 
 }
 
