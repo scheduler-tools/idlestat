@@ -1325,6 +1325,8 @@ int main(int argc, char *argv[], char *const envp[])
 			dump_cpu_topo_info(options.iterations, dump_states);
 		else
 			dump_cpu_topo_info(options.iterations, display_states);
+		if (options.energy_model_filename)
+			calculate_energy_consumption();
 	} else {
 		cluster = cluster_data(datas);
 		if (!cluster)

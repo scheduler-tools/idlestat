@@ -75,4 +75,5 @@ extern struct cpuidle_cstates *core_cluster_data(struct cpu_core *s_core);
 extern struct cpuidle_cstates *
 	physical_cluster_data(struct cpu_physical *s_phy);
 
+extern struct cpu_topology g_cpu_topo_list;
 #endif

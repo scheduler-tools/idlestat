@@ -1,8 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "idlestat.h"
+#include "topology.h"
+#include "list.h"
 
 static char buffer[BUFSIZE];
 
@@ -144,4 +147,109 @@ int parse_energy_model(const char *path)
 
 	printf("parsed energy model file\n");
 	return 0;
+}
+
+static struct cstate_energy_info *find_cstate_energy_info(const unsigned int cluster, const char *name)
+{
+	struct cluster_energy_info *clustp;
+	struct cstate_energy_info *cp;
+	int i;
+
+	clustp = cluster_energy_table + cluster;
+	cp = &clustp->c_energy[0];
+	for (i = 0; i < clustp->number_c_states; i++, cp++) {
+		if (!strcmp(cp->cstate_name, name)) return cp;
+	}
+	return NULL;
+}
+
+static struct pstate_energy_info *find_pstate_energy_info(const unsigned int cluster, const unsigned int speed)
+{
+	struct cluster_energy_info *clustp;
+	struct pstate_energy_info *pp;
+	int i;
+
+	clustp = cluster_energy_table + cluster;
+	pp = &clustp->p_energy[0];
+	for (i = 0; i < clustp->number_cap_states; i++, pp++) {
+		if (speed == pp->speed) return pp;
+	}
+	return NULL;
+}
+
+void calculate_energy_consumption(void)
+{
+	struct cpu_physical *s_phy;
+	struct cpu_core     *s_core;
+	struct cpu_cpu      *s_cpu;
+	double total_energy_used = 0.0;
+	double energy_from_cap_states = 0.0;
+	double energy_from_idle = 0.0;
+	double energy_from_wakeups = 0.0;
+	int i, j;
+	unsigned int current_cluster;
+	struct cstate_energy_info *cp;
+	struct pstate_energy_info *pp;
+	unsigned int cluster_cstate_count;
+	struct cluster_energy_info *clustp;
+
+	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head,
+			    list_physical) {
+		current_cluster = s_phy->physical_id;
+		cluster_cstate_count = 0;
+		clustp = cluster_energy_table + current_cluster;
+		for (j = 0; j < s_phy->cstates->cstate_max + 1; j++) {
+			struct cpuidle_cstate *c = &s_phy->cstates->cstate[j];
+
+			if (c->nrdata == 0)
+				continue;
+			cp = find_cstate_energy_info(current_cluster, c->name);
+			if (!cp)
+				continue;
+			cluster_cstate_count += c->nrdata;
+			cp->cluster_duration = c->duration;
+			energy_from_idle += c->duration * cp->cluster_idle_power;
+		}
+		energy_from_wakeups += (1 << 10) * cluster_cstate_count * clustp->wakeup_energy.cluster_wakeup_energy;
+		list_for_each_entry(s_core, &s_phy->core_head, list_core) {
+			list_for_each_entry(s_cpu, &s_core->cpu_head,
+					    list_cpu) {
+				for (i = 0; i < s_cpu->cstates->cstate_max + 1; i++) {
+					struct cpuidle_cstate *c = &s_cpu->cstates->cstate[i];
+					if (c->nrdata == 0)
+						continue;
+					cp = find_cstate_energy_info(current_cluster, c->name);
+					if (!cp)
+						continue;
+					energy_from_idle += (c->duration - cp->cluster_duration) * cp->core_idle_power;
+				}
+				for (i = 0; i < s_cpu->pstates->max; i++) {
+					struct cpufreq_pstate *p = &s_cpu->pstates->pstate[i];
+
+					if (p->count == 0)
+						continue;
+					pp = find_pstate_energy_info(current_cluster, p->freq/1000);
+					if (!pp)
+						continue;
+					pp->max_core_duration = MAX(p->duration, pp->max_core_duration);
+					energy_from_cap_states += p->duration * pp->core_power;
+				}
+			}
+		}
+		/*
+		 * XXX
+		 * No cluster P-state duration info available yet, so estimate this
+		 * as the maximum of the durations of its cores at that frequency.
+		 */
+		for (i = 0; i < clustp->number_cap_states; i++) {
+			pp = &clustp->p_energy[i];
+			energy_from_cap_states += pp->max_core_duration * pp->cluster_power;
+		}
+	}
+	printf("\n");
+	printf("energy consumption from cap states \t%e\n", energy_from_cap_states);
+	printf("energy consumption from idle \t\t%e\n", energy_from_idle);
+	printf("energy consumption from wakeups \t%e\n", energy_from_wakeups);
+	total_energy_used = energy_from_cap_states + energy_from_idle + energy_from_wakeups;
+	printf("total energy consumption estimate \t%e\n", total_energy_used);
 }

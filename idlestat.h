@@ -108,12 +108,14 @@ struct pstate_energy_info {
 	unsigned int speed;
 	unsigned int cluster_power;
 	unsigned int core_power;
+	double max_core_duration;
 };
 
 struct cstate_energy_info {
 	char cstate_name[NAMELEN];
 	unsigned int cluster_idle_power;
 	unsigned int core_idle_power;
+	double cluster_duration;
 };
 
 struct wakeup_energy_info {
