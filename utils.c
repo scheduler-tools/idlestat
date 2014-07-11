@@ -66,6 +66,63 @@ int read_int(const char *path, int *val)
 	return 0;
 }
 
+/* Temporary globals, to be better organized */
+int cpu_to_cluster[] = {1,0,0,1,1};
+#define cluster(CPU) cpu_to_cluster[CPU]
+#define cluster_label(CPU) 'A'+cpu_to_cluster[CPU]
+
+/* Keep track of each cluster status  */
+struct cluster {
+	FILE *gnuplot_freq_fd;
+	FILE *gnuplot_idle_fd;
+	int cluster_pstate; /* Cluster current P state */
+	int cluster_cstate; /* Cluster current C state */
+	/* for simplicity, use absolute CPU_ID as index */
+	int cpu_freq[5]; /* freq  0: CPU is idle */
+	int cpu_idle[5]; /* idle 99: CPU is not in that cluster */
+		         /* idle -1: CPU ative or in unknowen idle state */
+
+} cluster_status[] = {
+	{NULL, NULL, 0, 99,
+		{ 0,  0,  0,  0,  0}, /* P-States */
+		{99, -1, -1, 99, 99}, /* C-States */
+	}, /* ClusterA, 2x A15 */
+	{NULL, NULL, 0, 99,
+		{ 0,  0,  0,  0,  0}, /* P-States */
+		{-1, 99, 99, -1, -1}, /* C-States */
+	}, /* ClusterB, 3x A7 */
+};
+
+#define cpu_freq(CPU) \
+	cluster_status[cluster(CPU)].cpu_freq[CPU]
+#define cpu_idle(CPU) \
+	cluster_status[cluster(CPU)].cpu_idle[CPU]
+
+#define cpu_freq_valid(CPU) \
+	(cluster_status[cluster(CPU)].cpu_freq[CPU] !=  0)
+#define cpu_idle_valid(CPU) \
+	(cluster_status[cluster(CPU)].cpu_idle[CPU] != -1)
+
+#define cluster_pstate(CPU) \
+	cluster_status[cluster(CPU)].cluster_pstate
+#define cluster_cstate(CPU) \
+	cluster_status[cluster(CPU)].cluster_cstate
+
+#define cluster_cpu_freq(CLUSTER, CPU) \
+	cluster_status[CLUSTER].cpu_freq[CPU]
+#define cluster_cpu_idle(CLUSTER, CPU) \
+	cluster_status[CLUSTER].cpu_idle[CPU]
+
+#define cluster_cpus_freq(CPU) \
+	cluster_status[cluster(CPU)].cpu_freq
+#define cluster_cpus_idle(CPU) \
+	cluster_status[cluster(CPU)].cpu_idle
+
+#define cluster_gplot_freq(CPU) \
+	cluster_status[cluster(CPU)].gnuplot_freq_fd
+#define cluster_gplot_idle(CPU) \
+	cluster_status[cluster(CPU)].gnuplot_idle_fd
+
 int store_line(const char *line, void *data)
 {
 	FILE *f = data;
