@@ -45,6 +45,7 @@
 #include "trace.h"
 #include "list.h"
 #include "topology.h"
+#include "energy_model.h"
 
 #define IDLESTAT_VERSION "0.4-rc1"
 #define USEC_PER_SEC 1000000
@@ -987,6 +988,7 @@ struct program_options {
 	int mode;
 	unsigned int duration;
 	char *filename;
+	char *energy_model_filename;
 };
 
 int getoptions(int argc, char *argv[], struct program_options *options)
@@ -995,6 +997,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		{ "trace",       no_argument,       &options->mode, TRACE },
 		{ "import",      no_argument,       &options->mode, IMPORT },
 		{ "debug",       no_argument,       NULL, 'd' },
+		{ "energy-model-file",  required_argument, NULL, 'e' },
 		{ "trace-file",  required_argument, NULL, 'f' },
 		{ "help",        no_argument,       NULL, 'h' },
 		{ "iterations",  required_argument, NULL, 'i' },
@@ -1012,7 +1015,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, ":df:hi:t:Vz",
+		c = getopt_long(argc, argv, ":de:f:hi:t:Vz",
 				long_options, &optindex);
 		if (c == -1)
 			break;
@@ -1020,6 +1023,9 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		switch (c) {
 		case 'd':
 			options->debug = true;
+			break;
+		case 'e':
+			options->energy_model_filename = optarg;
 			break;
 		case 'f':
 			options->filename = optarg;
@@ -1054,6 +1060,11 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 			help(argv[0]);
 			return -1;
 		}
+	}
+
+	if (parse_energy_model(options->energy_model_filename) < 0) {
+		fprintf(stderr, "can't parse energy model file\n");
+		return -1;
 	}
 
 	if (options->iterations < 0)

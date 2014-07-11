@@ -24,7 +24,7 @@
 CFLAGS?=-g -Wall
 CC=gcc
 
-OBJS = idlestat.o topology.o trace.o utils.o
+OBJS = idlestat.o topology.o trace.o utils.o energy_model.o
 
 default: idlestat
 
