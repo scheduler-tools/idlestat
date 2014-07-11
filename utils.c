@@ -201,6 +201,64 @@ void dump_psci_proxy_status()
 	}
 }
 
+void dump_gnuplot_idle(double time, unsigned int cpu)
+{
+	char gpfilename[] = "./ClusterA_CStates.dat";
+	int cluster_id = cluster(cpu);
+
+	if (cluster_gplot_idle(cpu) == NULL) {
+		gpfilename[9] = 'A' + cluster_id;
+		print_vrb("Opening GPlot data [%s]...\n", gpfilename);
+		cluster_gplot_idle(cpu) = fopen(gpfilename, "w");
+	}
+
+	fprintf(cluster_gplot_idle(cpu),
+		"%.6f %8d %8d %8d %8d %8d %8d\n",
+		time,
+		cluster_status[cluster_id].cpu_idle[0],
+		cluster_status[cluster_id].cpu_idle[1],
+		cluster_status[cluster_id].cpu_idle[2],
+		cluster_status[cluster_id].cpu_idle[3],
+		cluster_status[cluster_id].cpu_idle[4],
+		cluster_status[cluster_id].cluster_cstate
+		);
+}
+
+void dump_gnuplot_freq(double time, unsigned int cpu)
+{
+	char gpfilename[] = "./ClusterA_PStates.dat";
+	int cluster_id = cluster(cpu);
+
+	if (cluster_gplot_freq(cpu) == NULL) {
+		gpfilename[9] = 'A' + cluster_id;
+		print_vrb("Opening GPlot data [%s]...\n", gpfilename);
+		cluster_gplot_freq(cpu) = fopen(gpfilename, "w");
+	}
+
+	fprintf(cluster_gplot_freq(cpu),
+		"%.6f %8d %8d %8d %8d %8d %8d\n",
+		time,
+		cluster_status[cluster_id].cpu_freq[0],
+		cluster_status[cluster_id].cpu_freq[1],
+		cluster_status[cluster_id].cpu_freq[2],
+		cluster_status[cluster_id].cpu_freq[3],
+		cluster_status[cluster_id].cpu_freq[4],
+		cluster_status[cluster_id].cluster_pstate
+		);
+}
+
+void close_gnuplot_data()
+{
+	if (cluster_status[0].gnuplot_freq_fd != NULL)
+		fclose(cluster_status[0].gnuplot_freq_fd);
+	if (cluster_status[0].gnuplot_idle_fd != NULL)
+		fclose(cluster_status[0].gnuplot_idle_fd);
+	if (cluster_status[1].gnuplot_freq_fd != NULL)
+		fclose(cluster_status[1].gnuplot_freq_fd);
+	if (cluster_status[1].gnuplot_idle_fd != NULL)
+		fclose(cluster_status[1].gnuplot_idle_fd);
+}
+
 void switch_cluster_cstate(FILE *f, double time, unsigned int state, unsigned int cpu)
 {
 	int i;
@@ -289,6 +347,9 @@ void update_cstate(FILE *f, double time, unsigned int state, unsigned int cpu)
 	switch_cluster_cstate(f, time, state, cpu);
 
 exit_plot:
+	/* Just for debuggin */
+	dump_gnuplot_idle(time, cpu);
+
 	return;
 }
 
@@ -340,6 +401,9 @@ void update_pstate(FILE *f, double time, unsigned int freq, unsigned int cpu)
 	switch_cluster_pstate(f, time, freq, cpu);
 
 exit_plot:
+	/* Just for debugging */
+	dump_gnuplot_freq(time, cpu);
+
 	return;
 }
 
@@ -443,6 +507,10 @@ int store_line(const char *line, void *data)
 }
 #else
 void setup_mapping()
+{
+}
+
+void close_gnuplot_data()
 {
 }
 

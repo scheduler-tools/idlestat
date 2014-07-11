@@ -55,5 +55,6 @@ extern int file_read_value(const char *path, const char *name,
 				const char *format, void *value);
 
 void setup_mapping();
+void close_gnuplot_data(void);
 
 #endif

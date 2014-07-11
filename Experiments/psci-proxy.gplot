@@ -1,0 +1,49 @@
+#set terminal pngcairo  transparent enhanced font "arial,10" fontscale 1.0 size 500, 350
+set terminal pngcairo enhanced font "arial,10"
+
+set style line 1 lt 1 lc rgb "red"   lw 1
+set style line 2 lt 2 lc rgb "blue"  lw 1
+set style line 3 lt 2 lc rgb "green" lw 1
+set style line 4 lt 2 lc rgb "pink"  lw 1
+
+set xlabel 'Time'
+
+# Cluster A
+set output 'ClusterA_CStates.png'
+set title  'ClusterA C-States'
+set ylabel 'C-State'
+set yrange [-1:3]
+
+plot 'ClusterA_CStates.dat' using 1:3 title 'CPU_1' with steps ls 2, \
+     'ClusterA_CStates.dat' using 1:4 title 'CPU_2' with steps ls 3, \
+     'ClusterA_CStates.dat' using 1:7 title 'ClusterA' with steps ls 1
+
+set output 'ClusterA_PStates.png'
+set title  'ClusterA P-States'
+set ylabel 'P-State'
+set yrange [0:2000000]
+
+plot 'ClusterA_PStates.dat' using 1:3 title 'CPU_1' with steps ls 2, \
+     'ClusterA_PStates.dat' using 1:4 title 'CPU_2' with steps ls 3, \
+     'ClusterA_PStates.dat' using 1:7 title 'ClusterA' with steps ls 1
+
+# Cluster B
+set output 'ClusterB_CStates.png'
+set title  'ClusterB C-States'
+set ylabel 'C-State'
+set yrange [-1:3]
+
+plot 'ClusterB_CStates.dat' using 1:2 title 'CPU_0' with steps ls 2, \
+     'ClusterB_CStates.dat' using 1:5 title 'CPU_3' with steps ls 3, \
+     'ClusterB_CStates.dat' using 1:6 title 'CPU_4' with steps ls 4, \
+     'ClusterB_CStates.dat' using 1:7 title 'ClusterB' with steps ls 1
+
+set output 'ClusterB_PStates.png'
+set title  'ClusterB P-States'
+set ylabel 'P-State'
+set yrange [0:2000000]
+
+plot 'ClusterB_PStates.dat' using 1:2 title 'CPU_0' with steps ls 2, \
+     'ClusterB_PStates.dat' using 1:5 title 'CPU_3' with steps ls 3, \
+     'ClusterB_CStates.dat' using 1:6 title 'CPU_4' with steps ls 4, \
+     'ClusterB_PStates.dat' using 1:7 title 'ClusterB' with steps ls 1

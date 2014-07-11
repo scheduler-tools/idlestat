@@ -1258,6 +1258,7 @@ static int idlestat_store(const char *path, bool scenario)
 
 	ret = idlestat_file_for_each_line(options.trace_file, f, store_line);
 
+	close_gnuplot_data();
 	fclose(f);
 
 	return ret;
