@@ -66,6 +66,9 @@ int read_int(const char *path, int *val)
 	return 0;
 }
 
+#define VEXPRESS_TC2
+#ifdef VEXPRESS_TC2
+
 /* Temporary globals, to be better organized */
 int cpu_to_cluster[] = {1,0,0,1,1};
 #define cluster(CPU) cpu_to_cluster[CPU]
@@ -123,6 +126,20 @@ struct cluster {
 #define cluster_gplot_idle(CPU) \
 	cluster_status[cluster(CPU)].gnuplot_idle_fd
 
+
+int store_line(const char *line, void *data)
+{
+	FILE *f = data;
+
+	/* ignore comment line */
+	if (line[0] == '#')
+		return 0;
+
+	/* All other events are reporetd in output */
+	fprintf(f, "%s", line);
+	return 0;
+}
+#else
 int store_line(const char *line, void *data)
 {
 	FILE *f = data;
@@ -135,6 +152,7 @@ int store_line(const char *line, void *data)
 
 	return 0;
 }
+#endif
 
 /*
  * This functions is a helper to read a specific file content and store
