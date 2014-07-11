@@ -104,6 +104,8 @@ struct cpuidle_datas {
 	int nrcpus;
 };
 
+struct cpuidle_datas *idlestat_load(const char *);
+
 struct pstate_energy_info {
 	unsigned int speed;
 	unsigned int cluster_power;

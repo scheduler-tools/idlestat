@@ -742,7 +742,7 @@ static int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer, int count)
 	return -1;
 }
 
-static struct cpuidle_datas *idlestat_load(const char *path)
+struct cpuidle_datas *idlestat_load(const char *path)
 {
 	FILE *f;
 	unsigned int state = 0, freq = 0, cpu = 0, nrcpus = 0;
@@ -1062,7 +1062,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		}
 	}
 
-	if (parse_energy_model(options->energy_model_filename) < 0) {
+	if (parse_energy_model(options->energy_model_filename, options->filename) < 0) {
 		fprintf(stderr, "can't parse energy model file\n");
 		return -1;
 	}
