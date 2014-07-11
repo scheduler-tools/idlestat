@@ -176,6 +176,11 @@ void switch_cluster_cstate(FILE *f, double time, unsigned int state, unsigned in
 	/* Keep track of new cluster C-State */
 	cluster_cstate(cpu) = state;
 
+	print_vrb("Switch Cluster%c idle state to %s (state %d)\n",
+			'A'+cluster(cpu),
+			state ? "C1" : "WFI",
+			state);
+
 	for (i = 0; i < 5; ++i) {
 		/* Disregard CPUs not in that cluster (99) or not idle (-1) */
 		if (cluster_cpu_idle(cluster(cpu), i) == 99 ||
@@ -186,6 +191,7 @@ void switch_cluster_cstate(FILE *f, double time, unsigned int state, unsigned in
 		 * - which is idle
 		 * => switch event to new cluster idle state */
 		fprintf(f, EVENT_IDLE_FORMAT, i, time, state, i);
+		print_vrb(EVENT_IDLE_FDEBUG, i, time, ">>>", state, i);
 	}
 
 }
@@ -207,6 +213,7 @@ void update_cstate(FILE *f, double time, unsigned int state, unsigned int cpu)
 	/* Always forwarded on the output trace */
 	if (state == -1) {
 		fprintf(f, EVENT_IDLE_FORMAT, cpu, time, state, cpu);
+		print_vrb(EVENT_IDLE_FDEBUG, cpu, time, ">>>", state, cpu);
 		return;
 	}
 
@@ -219,6 +226,7 @@ void update_cstate(FILE *f, double time, unsigned int state, unsigned int cpu)
 	   => notify just the CPU entering the Cluster idle state */
 	if (cluster_cstate(cpu) == get_min_cstate(cluster_cpus_idle(cpu))) {
 		fprintf(f, EVENT_IDLE_FORMAT, cpu, time, cluster_cstate(cpu), cpu);
+		print_vrb(EVENT_IDLE_FDEBUG, cpu, time, ">>>", cluster_cstate(cpu), cpu);
 		goto exit_plot;
 	}
 
@@ -237,6 +245,9 @@ void switch_cluster_pstate(FILE *f, double time, unsigned int freq, unsigned int
 	/* Keep track of new cluster p_State */
 	cluster_pstate(cpu) = freq;
 
+	print_vrb("Switch Cluster%c frequency to %u Hz\n",
+			'A'+cluster(cpu), freq);
+
 	/* All active CPUs switching to the new Cluster frequency */
 	for (i = 0; i < 5; ++i) {
 		if (cluster_cpu_freq(cluster(cpu), i) == 0)
@@ -246,6 +257,7 @@ void switch_cluster_pstate(FILE *f, double time, unsigned int freq, unsigned int
 		 * - which is not idle
 		 * => switch event to new cluster frequency */
 		fprintf(f, EVENT_FREQ_FORMAT, i, time, freq, i);
+		print_vrb(EVENT_FREQ_FDEBUG, i, time, ">>>", freq, i);
 	}
 
 }
@@ -263,6 +275,7 @@ void update_pstate(FILE *f, double time, unsigned int freq, unsigned int cpu)
 	   => notify just the CPU entering the higer Cluster frequency */
 	if (cluster_pstate(cpu) == get_max_pstate(cluster_cpus_freq(cpu))) {
 		fprintf(f, EVENT_FREQ_FORMAT, cpu, time, cluster_pstate(cpu), cpu);
+		print_vrb(EVENT_FREQ_FDEBUG, cpu, time, ">>>", cluster_pstate(cpu), cpu);
 		goto exit_plot;
 	}
 
