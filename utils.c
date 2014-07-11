@@ -132,6 +132,7 @@ struct cluster {
 	cluster_status[cluster(CPU)].gnuplot_idle_fd
 
 #define EVENT_IDLE_FORMAT "     idlestat/vex-tc2  [%03d] .... %12.6f: cpu_idle: state=%u cpu_id=%u\n"
+#define EVENT_FREQ_FORMAT "     idlestat/vex-tc2  [%03d] .... %12.6f: cpu_frequency: state=%u cpu_id=%u\n"
 
 #define EVENT_FREQ_FDEBUG "     idlestat/vex-tc2  [%03d] .... %12.6f: %s frequency: state=%u cpu_id=%u\n"
 #define EVENT_IDLE_FDEBUG "     idlestat/vex-tc2  [%03d] .... %12.6f: %s idle: state=%u cpu_id=%u\n"
@@ -150,6 +151,22 @@ int get_min_cstate(int *values)
 	}
 
 	return min_cstate;
+}
+
+int get_max_pstate(int *freqs)
+{
+	int i;
+	int max_pstate = 0;
+
+	for (i = 0; i < 5; ++i) {
+		/* Disregard idle CPUs on not into this cluster */
+		if (!cpu_freq_valid(i))
+			continue;
+		if (max_pstate < freqs[i])
+			max_pstate = freqs[i];
+	}
+
+	return max_pstate;
 }
 
 void switch_cluster_cstate(FILE *f, double time, unsigned int state, unsigned int cpu)
@@ -213,6 +230,50 @@ exit_plot:
 	return;
 }
 
+void switch_cluster_pstate(FILE *f, double time, unsigned int freq, unsigned int cpu)
+{
+	int i;
+
+	/* Keep track of new cluster p_State */
+	cluster_pstate(cpu) = freq;
+
+	/* All active CPUs switching to the new Cluster frequency */
+	for (i = 0; i < 5; ++i) {
+		if (cluster_cpu_freq(cluster(cpu), i) == 0)
+			continue;
+		/* This is for sure:
+		 * - a CPU of this cluster
+		 * - which is not idle
+		 * => switch event to new cluster frequency */
+		fprintf(f, EVENT_FREQ_FORMAT, i, time, freq, i);
+	}
+
+}
+
+void update_pstate(FILE *f, double time, unsigned int freq, unsigned int cpu)
+{
+
+	/* Sanity check we update only CPUs of that cluster */
+	assert(cpu_idle(cpu) != 99);
+
+	/* Update PSCI-Proxy PState for that CPU */
+	cpu_freq(cpu) = freq;
+
+	/* If the CPU is entering a lower P-State than the cluster one:
+	   => notify just the CPU entering the higer Cluster frequency */
+	if (cluster_pstate(cpu) == get_max_pstate(cluster_cpus_freq(cpu))) {
+		fprintf(f, EVENT_FREQ_FORMAT, cpu, time, cluster_pstate(cpu), cpu);
+		goto exit_plot;
+	}
+
+	/* The CPU is entering a P-State which is higher than the Cluster one:
+	   => all active CPUs enters this new higer P-State */
+	switch_cluster_pstate(f, time, freq, cpu);
+
+exit_plot:
+	return;
+}
+
 int store_line(const char *line, void *data)
 {
 	unsigned int state = 0, freq = 0, cpu = 0;
@@ -243,6 +304,9 @@ int store_line(const char *line, void *data)
 		/* Just for debug: report event on the output trace */
 		print_vrb(EVENT_FREQ_FDEBUG, cpu, time, "<<<", freq, cpu);
 
+		/* P-State variations alwasy filtered and (eventually) repored in output */
+		update_pstate(f, time, freq, cpu);
+		return 0;
 
 	}
 
