@@ -28,6 +28,8 @@
 #include <stdio.h>
 #undef _GNU_SOURCE
 #include <stdlib.h>
+#include <string.h>
+#include <assert.h>
 
 #include "utils.h"
 
@@ -68,6 +70,8 @@ int read_int(const char *path, int *val)
 
 #define VEXPRESS_TC2
 #ifdef VEXPRESS_TC2
+
+#define TRACE_FORMAT "%*[^]]] %*4s %lf:%*[^=]=%u%*[^=]=%u"
 
 /* Temporary globals, to be better organized */
 int cpu_to_cluster[] = {1,0,0,1,1};
@@ -127,13 +131,37 @@ struct cluster {
 	cluster_status[cluster(CPU)].gnuplot_idle_fd
 
 
+#define EVENT_FREQ_FDEBUG "     idlestat/vex-tc2  [%03d] .... %12.6f: %s frequency: state=%u cpu_id=%u\n"
+#define EVENT_IDLE_FDEBUG "     idlestat/vex-tc2  [%03d] .... %12.6f: %s idle: state=%u cpu_id=%u\n"
+
 int store_line(const char *line, void *data)
 {
+	unsigned int state = 0, freq = 0, cpu = 0;
 	FILE *f = data;
+	double time;
 
 	/* ignore comment line */
 	if (line[0] == '#')
 		return 0;
+
+	/* Filter CPUIdle events */
+	if (strstr(line, "cpu_idle")) {
+		assert(sscanf(line, TRACE_FORMAT, &time, &state, &cpu) == 3);
+
+		/* Just for debug: report event on the output trace */
+		print_vrb(EVENT_IDLE_FDEBUG, cpu, time, "<<<", state, cpu);
+
+	}
+
+	/* Filter CPUFreq events */
+	if (strstr(line, "cpu_frequency")) {
+		assert(sscanf(line, TRACE_FORMAT, &time, &freq, &cpu) == 3);
+
+		/* Just for debug: report event on the output trace */
+		print_vrb(EVENT_FREQ_FDEBUG, cpu, time, "<<<", freq, cpu);
+
+
+	}
 
 	/* All other events are reporetd in output */
 	fprintf(f, "%s", line);
