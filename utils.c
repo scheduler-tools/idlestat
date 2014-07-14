@@ -154,7 +154,8 @@ int store_line(const char *line, void *data)
 	}
 
 	/* Filter CPUFreq events */
-	if (strstr(line, "cpu_frequency")) {
+	if (strstr(line, "cpu_frequency") ||
+			strstr(line, "idlestat_frequency")) {
 		assert(sscanf(line, TRACE_FORMAT, &time, &freq, &cpu) == 3);
 
 		/* Just for debug: report event on the output trace */

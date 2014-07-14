@@ -852,21 +852,15 @@ struct cpuidle_datas *idlestat_load(const char *path)
 			assert(sscanf(buffer, TRACE_FORMAT, &time, &freq,
 				      &cpu) == 3);
 
-			/* Ignore events if a P-State as not yet been identified */
-			if (!cpu_pstate_assigned(datas, cpu))
-				continue;
+			if (!cpu_pstate_assigned(datas, cpu)) {
+				/* Following P-State */
+				assert(datas->pstates[cpu].pstate != NULL);
+				cpu_change_pstate(datas, cpu, freq, time);
+			} else {
+				/* Intial P-State */
+				cpu_change_pstate(datas, cpu, freq, time);
+			}
 
-			assert(datas->pstates[cpu].pstate != NULL);
-			cpu_change_pstate(datas, cpu, freq, time);
-			count++;
-			continue;
-		}
-
-		if (strstr(buffer, "idlestat_frequency:")) {
-			assert(sscanf(buffer, TRACE_FORMAT, &time, &freq,
-					&cpu) == 3);
-			/* Assign intial P-State */
-			cpu_change_pstate(datas, cpu, freq, time);
 			count++;
 			continue;
 		}
