@@ -748,7 +748,7 @@ static int store_irq(int cpu, int irqid, char *irqname,
 
 #define TRACE_CMD_FORMAT "%*[^]]] %lf:%*[^=]=%u%*[^=]=%d"
 #define TRACE_FORMAT "%*[^]]] %*4s %lf:%*[^=]=%u%*[^=]=%u"
-#define TRACE_TIME_FORMAT "%*[^]]] %*4s %lf:"
+#define TRACE_TIME_FORMAT "%*[^[][%u] %*4s %lf:"
 
 static int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer, int count)
 {
@@ -872,14 +872,14 @@ struct cpuidle_datas *idlestat_load(const char *path)
 		}
 
 		if (strstr(buffer, "idlestat_start")) {
-			assert(sscanf(buffer, TRACE_TIME_FORMAT, &time) == 1);
+			assert(sscanf(buffer, TRACE_TIME_FORMAT, &cpu, &time) == 2);
 			datas->profile_start = time;
 			fprintf(stderr, "Porfile start @ %f\n", datas->profile_start);
 			continue;
 		}
 
 		if (strstr(buffer, "idlestat_end")) {
-			assert(sscanf(buffer, TRACE_TIME_FORMAT, &time) == 1);
+			assert(sscanf(buffer, TRACE_TIME_FORMAT, &cpu, &time) == 2);
 			datas->profile_end = time;
 			fprintf(stderr, "Porfile end @ %f\n", datas->profile_end);
 			continue;
