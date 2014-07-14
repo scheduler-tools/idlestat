@@ -73,6 +73,7 @@ int read_int(const char *path, int *val)
 #ifdef VEXPRESS_TC2
 
 #define TRACE_FORMAT "%*[^]]] %*4s %lf:%*[^=]=%u%*[^=]=%u"
+#define TRACE_TIME_FORMAT "%*[^[][%u] %*4s %lf:"
 
 /* Temporary globals, to be better organized */
 int cpu_to_cluster[] = {1,0,0,1,1};
@@ -133,9 +134,11 @@ struct cluster {
 
 #define EVENT_IDLE_FORMAT "     idlestat/vex-tc2  [%03d] .... %12.6f: cpu_idle: state=%u cpu_id=%u\n"
 #define EVENT_FREQ_FORMAT "     idlestat/vex-tc2  [%03d] .... %12.6f: cpu_frequency: state=%u cpu_id=%u\n"
+#define EVENT_MARK_FORMAT "     idlestat/vex-tc2  [%03d] .... %12.6f: idlestat_%s\n"
 
 #define EVENT_FREQ_FDEBUG "     idlestat/vex-tc2  [%03d] .... %12.6f: %s frequency: state=%u cpu_id=%u\n"
 #define EVENT_IDLE_FDEBUG "     idlestat/vex-tc2  [%03d] .... %12.6f: %s idle: state=%u cpu_id=%u\n"
+#define EVENT_MARK_FDEBUG "     idlestat/vex-tc2  [%03d] .... %12.6f: %s idlestat_%s\n"
 
 int get_min_cstate(int *values)
 {
@@ -353,6 +356,30 @@ int store_line(const char *line, void *data)
 		update_pstate(f, time, freq, cpu);
 		return 0;
 
+	}
+
+	/* Reformat idlestat START marker */
+	if (strstr(line, "idlestat_start")) {
+		assert(sscanf(line, TRACE_TIME_FORMAT, &cpu, &time) == 2);
+
+		/* Just for debug: report event on the output trace */
+		print_vrb(EVENT_MARK_FDEBUG, cpu, time, "<<<", "start");
+
+		fprintf(f, EVENT_MARK_FORMAT, cpu, time, "start");
+		print_vrb(EVENT_MARK_FDEBUG, cpu, time, ">>>", "start");
+		return 0;
+	}
+
+	/* Reformat idlestat END marker */
+	if (strstr(line, "idlestat_end")) {
+		assert(sscanf(line, TRACE_TIME_FORMAT, &cpu, &time) == 2);
+
+		/* Just for debug: report event on the output trace */
+		print_vrb(EVENT_MARK_FDEBUG, cpu, time, "<<<", "end");
+
+		fprintf(f, EVENT_MARK_FORMAT, cpu, time, "end");
+		print_vrb(EVENT_MARK_FDEBUG, cpu, time, ">>>", "end");
+		return 0;
 	}
 
 	/* All other events are reporetd in output */
