@@ -779,8 +779,7 @@ struct cpuidle_datas *idlestat_load(const char *path)
 {
 	FILE *f;
 	unsigned int state = 0, freq = 0, cpu = 0, nrcpus = 0;
-	double time, begin = 0, end = 0;
-	size_t count = 0, start = 1;
+	double time;
 	struct cpuidle_datas *datas;
 	int ret;
 
@@ -853,12 +852,6 @@ struct cpuidle_datas *idlestat_load(const char *path)
 
 			print_vrb("%d\n", state);
 
-			if (start) {
-				begin = time;
-				start = 0;
-			}
-			end = time;
-
 			store_data(time, state, cpu, datas, datas->events_count);
 			datas->events_count++;
 			continue;
@@ -914,8 +907,9 @@ struct cpuidle_datas *idlestat_load(const char *path)
 
 	fclose(f);
 
-	fprintf(stderr, "Log is %lf secs long with %zd events\n",
-		end - begin, count);
+	fprintf(stderr, "Tracing period: %f [s], %d events\n",
+		datas->profile_end - datas->profile_start,
+		datas->events_count);
 
 	return datas;
 }
