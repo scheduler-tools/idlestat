@@ -217,6 +217,17 @@ void switch_cluster_cstate(FILE *f, double time, unsigned int state, unsigned in
 		if (cluster_cpu_idle(cluster(cpu), i) == 99 ||
 		    cluster_cpu_idle(cluster(cpu), i) == -1)
 			continue;
+
+		/* Generate a fake C-State exit event which is*/
+		/* required to close the previous period */
+		if (i != cpu) {
+			/* This is required just for other CPUs of this cluster */
+			/* since the current CPU has been already traced in the */
+			/* calling method */
+			fprintf(f, EVENT_IDLE_FORMAT, i, time, -1, i);
+			print_vrb(EVENT_IDLE_FDEBUG, i, time, ">>>", -1, i);
+		}
+
 		/* This is for sure:
 		 * - a CPU of this cluster
 		 * - which is idle
@@ -242,11 +253,20 @@ void update_cstate(FILE *f, double time, unsigned int state, unsigned int cpu)
 	cpu_idle(cpu) = state;
 
 	/* C-State EXIT */
-
-	/* Always forwarded on the output trace */
 	if (state == -1) {
+
+		/* Trace the CPU active event */
 		fprintf(f, EVENT_IDLE_FORMAT, cpu, time, state, cpu);
 		print_vrb(EVENT_IDLE_FDEBUG, cpu, time, ">>>", state, cpu);
+
+		/* Notify all other idle CPUs that now on the cluster
+		 * has been switched to C0 */
+		if (cluster_cstate(cpu) > 0)
+			switch_cluster_cstate(f, time, 0, cpu);
+
+		/* A running CPU keeps the cluster not lower than C0 */
+		cpu_idle(cpu) = 0;
+
 		return;
 	}
 
