@@ -616,7 +616,7 @@ static void cpu_pstate_running(struct cpuidle_datas *datas, int cpu,
 }
 
 static int store_data(double time, int state, int cpu,
-		      struct cpuidle_datas *datas, int count)
+		      struct cpuidle_datas *datas, bool end)
 {
 	struct cpuidle_cstates *cstates = &datas->cstates[cpu];
 	struct cpufreq_pstate *pstate = datas->pstates[cpu].pstate;
@@ -631,6 +631,10 @@ static int store_data(double time, int state, int cpu,
 	cstate = &cstates->cstate[state == -1 ? last_cstate : state];
 	data = cstate->data;
 	nrdata = cstate->nrdata;
+
+	/* After the END marker: Jump CPUs not idle */
+	if (end && data == NULL)
+		return 0;
 
 	if (state == -1) {
 
@@ -669,7 +673,7 @@ static int store_data(double time, int state, int cpu,
 			cstate->name, cstate->duration);
 
 		/* update P-state stats if supported */
-		if (pstate)
+		if (pstate && !end)
 			cpu_pstate_running(datas, cpu, time);
 
 		return 0;
@@ -694,6 +698,19 @@ static int store_data(double time, int state, int cpu,
 		cpu_pstate_idle(datas, cpu, time);
 
 	return 0;
+}
+
+static void cpu_pstate_close_all(struct cpuidle_datas *datas, double time)
+{
+	int i;
+
+	print_vrb("Closing all %d CPUs P-State...\n", datas->nrcpus);
+	for (i = 0; i < datas->nrcpus; ++i)
+		cpu_pstate_idle(datas, i, time);
+
+	print_vrb("Closing all %d CPUs C-State...\n", datas->nrcpus);
+	for (i = 0; i < datas->nrcpus; ++i)
+		store_data(time, -1, i, datas, true);
 }
 
 static struct wakeup_irq *find_irqinfo(struct wakeup_info *wakeinfo, int irqid)
@@ -852,7 +869,7 @@ struct cpuidle_datas *idlestat_load(const char *path)
 
 			print_vrb("%d\n", state);
 
-			store_data(time, state, cpu, datas, datas->events_count);
+			store_data(time, state, cpu, datas, false);
 			datas->events_count++;
 			continue;
 		}
@@ -897,7 +914,13 @@ struct cpuidle_datas *idlestat_load(const char *path)
 			assert(sscanf(buffer, TRACE_TIME_FORMAT, &cpu, &time) == 2);
 			datas->profile_end = time;
 			fprintf(stderr, "Porfile end @ %f\n", datas->profile_end);
-			continue;
+
+			/* Close all currently open P-States by considering all */
+			/* CPUs as idle */
+			cpu_pstate_close_all(datas, time);
+
+			/* No moere processing is required */
+			break;
 		}
 
 		ret = get_wakeup_irq(datas, buffer, datas->events_count);
