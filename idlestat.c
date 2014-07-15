@@ -1089,7 +1089,8 @@ static void version(const char *cmd)
 
 enum modes {
   TRACE=1,
-  IMPORT
+  IMPORT,
+  SCENARIO
 };
 
 int getoptions(int argc, char *argv[], struct program_options *options)
@@ -1102,6 +1103,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		{ "trace-file",  required_argument, NULL, 'f' },
 		{ "help",        no_argument,       NULL, 'h' },
 		{ "iterations",  required_argument, NULL, 'i' },
+		{ "scenario",    required_argument, NULL, 'S' },
 		{ "duration",    required_argument, NULL, 't' },
 		{ "version",     no_argument,       NULL, 'V' },
 		{ "verbose",     no_argument,       NULL, 'v' },
@@ -1118,7 +1120,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, ":de:f:hi:t:Vvz",
+		c = getopt_long(argc, argv, ":de:f:hi:S:t:Vvz",
 				long_options, &optindex);
 		if (c == -1)
 			break;
@@ -1142,6 +1144,10 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 			break;
 		case 't':
 			options->duration = atoi(optarg);
+			break;
+		case 'S':
+			options->mode = SCENARIO;
+			options->trace_file = optarg;
 			break;
 		case 'V':
 			version(argv[0]);
@@ -1228,7 +1234,7 @@ static int idlestat_file_for_each_line(const char *path, void *data,
 	return ret;
 }
 
-static int idlestat_store(const char *path)
+static int idlestat_store(const char *path, bool scenario)
 {
 	FILE *f;
 	int ret;
@@ -1482,8 +1488,19 @@ int main(int argc, char *argv[], char *const envp[])
 		 * up all cpus and timer expiration for the timer
 		 * acquisition). We assume these will be lost in the number
 		 * of other traces and could be negligible. */
-		if (idlestat_store(options.filename))
+		if (idlestat_store(options.filename, false))
 			return -1;
+	}
+
+	if ((options.mode == SCENARIO)) {
+
+		/* Read cpu topology info from sysfs */
+		read_sysfs_cpu_topo();
+
+		fprintf(stderr, "Parsing scenario file from: %s\n", options.trace_file);
+		if (idlestat_store(options.filename, true))
+			return -1;
+
 	}
 
 	/* Load the idle states information */
