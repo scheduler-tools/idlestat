@@ -853,7 +853,8 @@ struct cpuidle_datas *idlestat_load(const char *path)
 			store_data(time, state, cpu, datas, count);
 			count++;
 			continue;
-		} else if (strstr(buffer, "cpu_frequency")) {
+		}
+		if (strstr(buffer, "cpu_frequency")) {
 			assert(sscanf(buffer, TRACE_FORMAT, &time, &freq,
 				      &cpu) == 3);
 
