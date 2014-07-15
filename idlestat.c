@@ -573,6 +573,7 @@ static void cpu_change_pstate(struct cpuidle_datas *datas, int cpu,
 	case -1:
 		/* current pstate is -1, i.e. this is the first update */
 		open_initial_pstate(ps, next, time);
+		/* printf("CPU%u P-State initial: %d\n", cpu, freq); */
 		return;
 
 	case 0:
@@ -841,10 +842,15 @@ struct cpuidle_datas *idlestat_load(const char *path)
 			assert(sscanf(buffer, TRACE_FORMAT, &time, &state,
 				      &cpu) == 3);
 
+			print_vrb("CPU%u C-State: ", cpu);
+
 			/* Ignore events if a P-State has not yet been identified */
 			if (!cpu_pstate_assigned(datas, cpu)) {
+				/* printf("(ignored)\n"); */
 				continue;
 			}
+
+			print_vrb("%d\n", state);
 
 			if (start) {
 				begin = time;
@@ -862,11 +868,14 @@ struct cpuidle_datas *idlestat_load(const char *path)
 			assert(sscanf(buffer, TRACE_FORMAT, &time, &freq,
 				      &cpu) == 3);
 
+			print_vrb("CPU%u P-State: ", cpu);
+
 			/* P-State following the intial ones */
 			if (cpu_pstate_assigned(datas, cpu)) {
 				assert(datas->pstates[cpu].pstate != NULL);
 			}
 
+			print_vrb("%d\n", freq);
 
 			cpu_change_pstate(datas, cpu, freq, time);
 			assert(cpu_pstate_assigned(datas, cpu) == true);
@@ -878,6 +887,9 @@ struct cpuidle_datas *idlestat_load(const char *path)
 
 		/* Parse idlestat START marker */
 		if (strstr(buffer, "idlestat_start")) {
+
+			print_vrb("START event\n");
+
 			assert(sscanf(buffer, TRACE_TIME_FORMAT, &cpu, &time) == 2);
 			datas->profile_start = time;
 			fprintf(stderr, "Porfile start @ %f\n", datas->profile_start);
@@ -886,6 +898,9 @@ struct cpuidle_datas *idlestat_load(const char *path)
 
 		/* Parse idlestat END marker */
 		if (strstr(buffer, "idlestat_end")) {
+
+			print_vrb("END event\n");
+
 			assert(sscanf(buffer, TRACE_TIME_FORMAT, &cpu, &time) == 2);
 			datas->profile_end = time;
 			fprintf(stderr, "Porfile end @ %f\n", datas->profile_end);
