@@ -825,6 +825,7 @@ struct cpuidle_datas *idlestat_load(const char *path)
 	datas->nrcpus = nrcpus;
 	datas->profile_start = 0;
 	datas->profile_end = 0;
+	datas->events_count = 0;
 
 	fgets(buffer, BUFSIZE, f);
 
@@ -858,8 +859,8 @@ struct cpuidle_datas *idlestat_load(const char *path)
 			}
 			end = time;
 
-			store_data(time, state, cpu, datas, count);
-			count++;
+			store_data(time, state, cpu, datas, datas->events_count);
+			datas->events_count++;
 			continue;
 		}
 
@@ -880,8 +881,7 @@ struct cpuidle_datas *idlestat_load(const char *path)
 			cpu_change_pstate(datas, cpu, freq, time);
 			assert(cpu_pstate_assigned(datas, cpu) == true);
 
-
-			count++;
+			datas->events_count++;
 			continue;
 		}
 
@@ -907,8 +907,8 @@ struct cpuidle_datas *idlestat_load(const char *path)
 			continue;
 		}
 
-		ret = get_wakeup_irq(datas, buffer, count);
-		count += (0 == ret) ? 1 : 0;
+		ret = get_wakeup_irq(datas, buffer, datas->events_count);
+		datas->events_count += (0 == ret) ? 1 : 0;
 
 	} while (fgets(buffer, BUFSIZE, f));
 

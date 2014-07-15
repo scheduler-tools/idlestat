@@ -103,6 +103,7 @@ struct cpuidle_datas {
 	struct cpufreq_pstates *pstates;
 	double profile_start;
 	double profile_end;
+	size_t events_count;
 	int nrcpus;
 };
 
