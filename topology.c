@@ -203,11 +203,11 @@ int outfile_topo_info(FILE *f, struct cpu_topology *topo_list)
 	struct cpu_cpu      *s_cpu;
 
 	list_for_each_entry(s_phy, &topo_list->physical_head, list_physical) {
-		fprintf(f, "cluster%c:\n", s_phy->physical_id + 'A');
+		fprintf(f, "# cluster%c:\n", s_phy->physical_id + 'A');
 		list_for_each_entry(s_core, &s_phy->core_head, list_core) {
-			fprintf(f, "\tcore%d\n", s_core->core_id);
+			fprintf(f, "#\tcore%d\n", s_core->core_id);
 			list_for_each_entry(s_cpu, &s_core->cpu_head, list_cpu)
-				fprintf(f, "\t\tcpu%d\n", s_cpu->cpu_id);
+				fprintf(f, "#\t\tcpu%d\n", s_cpu->cpu_id);
 		}
 	}
 
@@ -357,7 +357,7 @@ int read_cpu_topo_info(FILE *f, char *buf)
 	char pid;
 
 	do {
-		ret = sscanf(buf, "cluster%c", &pid);
+		ret = sscanf(buf, "# cluster%c", &pid);
 		if (!ret)
 			break;
 
@@ -365,12 +365,12 @@ int read_cpu_topo_info(FILE *f, char *buf)
 
 		fgets(buf, BUFSIZE, f);
 		do {
-			ret = sscanf(buf, "\tcore%d", &cpu_info.core_id);
+			ret = sscanf(buf, "#\tcore%d", &cpu_info.core_id);
 			if (ret) {
 				is_ht = true;
 				fgets(buf, BUFSIZE, f);
 			} else {
-				ret = sscanf(buf, "\tcpu%d", &cpu_info.cpu_id);
+				ret = sscanf(buf, "#\tcpu%d", &cpu_info.cpu_id);
 				if (ret)
 					is_ht = false;
 				else
@@ -379,11 +379,11 @@ int read_cpu_topo_info(FILE *f, char *buf)
 
 			do {
 				if (!is_ht) {
-					ret = sscanf(buf, "\tcpu%d",
+					ret = sscanf(buf, "#\tcpu%d",
 						     &cpu_info.cpu_id);
 					cpu_info.core_id = cpu_info.cpu_id;
 				} else {
-					ret = sscanf(buf, "\t\tcpu%d",
+					ret = sscanf(buf, "#\t\tcpu%d",
 						     &cpu_info.cpu_id);
 				}
 

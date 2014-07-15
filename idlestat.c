@@ -810,7 +810,7 @@ struct cpuidle_datas *idlestat_load(const char *path)
 	fgets(buffer, BUFSIZE, f);
 
 	fgets(buffer, BUFSIZE, f);
-	assert(sscanf(buffer, "cpus=%u", &nrcpus) == 1);
+	assert(sscanf(buffer, "# cpus=%u", &nrcpus) == 1);
 
 	if (!nrcpus) {
 		fclose(f);
@@ -1212,6 +1212,11 @@ static int idlestat_file_for_each_line(const char *path, void *data,
 	}
 
 	while (fgets(buffer, BUFSIZE, f)) {
+
+		/* ignore comments and empty line */
+		if (buffer[0] == '#' || buffer[0] == 0x0A)
+			continue;
+
 		ret = handler(buffer, data);
 		if (ret)
 			break;
@@ -1238,8 +1243,8 @@ static int idlestat_store(const char *path)
 		return -1;
 	}
 
-	fprintf(f, "version = %s\n", IDLESTAT_VERSION);
-	fprintf(f, "cpus=%d\n", ret);
+	fprintf(f, "# version = %s\n", IDLESTAT_VERSION);
+	fprintf(f, "# cpus=%d\n", ret);
 
 	/* output topology information */
 	output_cpu_topo_info(f);
