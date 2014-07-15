@@ -831,6 +831,11 @@ struct cpuidle_datas *idlestat_load(const char *path)
 	read_cpu_topo_info(f, buffer);
 
 	do {
+
+		/* ignore comments and empty line */
+		if (buffer[0] == '#' || buffer[0] == 0x0A)
+			continue;
+
 		if (strstr(buffer, "cpu_idle")) {
 			assert(sscanf(buffer, TRACE_FORMAT, &time, &state,
 				      &cpu) == 3);
