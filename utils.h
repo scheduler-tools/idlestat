@@ -38,6 +38,7 @@ struct program_options {
 	int mode;
 	unsigned int duration;
 	char *filename;
+	char *trace_file;
 	char *energy_model_filename;
 };
 extern struct program_options options;

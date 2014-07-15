@@ -1112,6 +1112,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 
 	memset(options, 0, sizeof(*options));
 	options->filename = NULL;
+	options->trace_file = TRACE_FILE;
 
 	while (1) {
 
@@ -1249,7 +1250,7 @@ static int idlestat_store(const char *path)
 	/* output topology information */
 	output_cpu_topo_info(f);
 
-	ret = idlestat_file_for_each_line(TRACE_FILE, f, store_line);
+	ret = idlestat_file_for_each_line(options.trace_file, f, store_line);
 
 	fclose(f);
 
