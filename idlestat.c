@@ -858,14 +858,14 @@ struct cpuidle_datas *idlestat_load(const char *path)
 			assert(sscanf(buffer, TRACE_FORMAT, &time, &freq,
 				      &cpu) == 3);
 
-			if (!cpu_pstate_assigned(datas, cpu)) {
-				/* Following P-State */
+			/* P-State following the intial ones */
+			if (cpu_pstate_assigned(datas, cpu)) {
 				assert(datas->pstates[cpu].pstate != NULL);
-				cpu_change_pstate(datas, cpu, freq, time);
-			} else {
-				/* Intial P-State */
-				cpu_change_pstate(datas, cpu, freq, time);
 			}
+
+
+			cpu_change_pstate(datas, cpu, freq, time);
+			assert(cpu_pstate_assigned(datas, cpu) == true);
 
 			count++;
 			continue;
