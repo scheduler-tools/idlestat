@@ -836,13 +836,15 @@ struct cpuidle_datas *idlestat_load(const char *path)
 		if (buffer[0] == '#' || buffer[0] == 0x0A)
 			continue;
 
+		/* Parse CPUIdle events */
 		if (strstr(buffer, "cpu_idle")) {
 			assert(sscanf(buffer, TRACE_FORMAT, &time, &state,
 				      &cpu) == 3);
 
-			/* Ignore events if a P-State as not yet been identified */
-			if (!cpu_pstate_assigned(datas, cpu))
+			/* Ignore events if a P-State has not yet been identified */
+			if (!cpu_pstate_assigned(datas, cpu)) {
 				continue;
+			}
 
 			if (start) {
 				begin = time;
@@ -854,6 +856,8 @@ struct cpuidle_datas *idlestat_load(const char *path)
 			count++;
 			continue;
 		}
+
+		/* Parse CPUFreq qvents */
 		if (strstr(buffer, "cpu_frequency")) {
 			assert(sscanf(buffer, TRACE_FORMAT, &time, &freq,
 				      &cpu) == 3);
@@ -867,10 +871,12 @@ struct cpuidle_datas *idlestat_load(const char *path)
 			cpu_change_pstate(datas, cpu, freq, time);
 			assert(cpu_pstate_assigned(datas, cpu) == true);
 
+
 			count++;
 			continue;
 		}
 
+		/* Parse idlestat START marker */
 		if (strstr(buffer, "idlestat_start")) {
 			assert(sscanf(buffer, TRACE_TIME_FORMAT, &cpu, &time) == 2);
 			datas->profile_start = time;
@@ -878,6 +884,7 @@ struct cpuidle_datas *idlestat_load(const char *path)
 			continue;
 		}
 
+		/* Parse idlestat END marker */
 		if (strstr(buffer, "idlestat_end")) {
 			assert(sscanf(buffer, TRACE_TIME_FORMAT, &cpu, &time) == 2);
 			datas->profile_end = time;
