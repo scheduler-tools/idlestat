@@ -314,6 +314,25 @@ While, the WFI events should be probably related to the wakeup_energy_cpu
 parameter... to be better discussed.
 
 
+
+Specifications for Energy Model Computation
+===========================================
+
+The Energy Model for a TC2 system has been designed to be generic with respect
+to a generic Heterogeneous system which could have frequency and voltage
+domains grouping multiple CPUs. A TC2 system has indeed these P and C state
+domains:
+  ClusterA: 2x A15
+  ClusterB: 3x  A7
+
+This architecture enforces these constraints:
+1. frequencies could be configured only at cluster level, thus:
+   *all* the CPUs in a cluster, if not idle, are running on the *highest*
+   P-State required by the CPUs of that cluster.
+2. idle states could be configured only at cluster level, thus:
+   *all* the CPUs in a cluster, if not running, are placed at minimum on
+   *highest* C-State entered by the CPUs of that cluster.
+
 ================================================================================
 References
 ================================================================================
