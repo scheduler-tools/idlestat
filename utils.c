@@ -33,6 +33,7 @@
 #include <limits.h>
 
 #include "utils.h"
+#include "topology.h"
 
 int write_int(const char *path, int val)
 {
@@ -342,6 +343,40 @@ exit_plot:
 	return;
 }
 
+extern struct cpu_topology g_cpu_topo_list;
+
+void setup_mapping()
+{
+	struct cpu_physical *s_phy;
+	struct cpu_core     *s_core;
+	struct cpu_cpu      *s_cpu;
+	int i = 0;
+
+	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head, list_physical) {
+		list_for_each_entry(s_core, &s_phy->core_head, list_core) {
+			list_for_each_entry(s_cpu, &s_core->cpu_head, list_cpu) {
+
+				/* TC2 specific boundaries */
+				assert(s_phy->physical_id < 2);
+				assert(s_cpu->cpu_id < 5);
+
+				cpu_to_cluster[s_cpu->cpu_id] = s_phy->physical_id;
+				cluster_status[s_phy->physical_id].cpu_idle[i] = -1;
+
+				print_vrb("Mapping CPU%d on Cluster%c\n",
+						s_cpu->cpu_id,
+						'A' + s_phy->physical_id);
+
+				++i;
+			}
+		}
+	}
+
+	/* TC2 specific check for expected number of mappings */
+	assert(i == 5);
+
+  }
+
 int store_line(const char *line, void *data)
 {
 	unsigned int state = 0, freq = 0, cpu = 0;
@@ -407,6 +442,10 @@ int store_line(const char *line, void *data)
 	return 0;
 }
 #else
+void setup_mapping()
+{
+}
+
 int store_line(const char *line, void *data)
 {
 	FILE *f = data;

@@ -848,6 +848,9 @@ struct cpuidle_datas *idlestat_load(const char *path)
 	/* read topology information */
 	read_cpu_topo_info(f, buffer);
 
+	/* Setup TC2 CPU-to-Cluster mappings */
+	setup_mapping();
+
 	do {
 
 		/* ignore comments and empty line */

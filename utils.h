@@ -53,4 +53,6 @@ extern int store_line(const char *line, void *data);
 extern int file_read_value(const char *path, const char *name,
 				const char *format, void *value);
 
+void setup_mapping();
+
 #endif
