@@ -384,22 +384,32 @@ the proposed Energy Model:
    The current implementation does not keep track of per-CPU P-States entry and
    exit time, but just an overall residency duration within each state.
    This does not allows the tool to properly compute for how long the complete
-   cluster was running on a P-State by considering the architectural contraints
+   cluster was running on a P-State by considering the architectural constraints
    enforced at cluster level cluster.
    For example, the cluster is always running at the maximum P-State in used by
    one of its CPus.
 
-6. Missing of set of validation traces
+6. Energy model misses a description of the CPUs PM policy and constraints
+   The current implementation assumes that each CPU has a PM support which is
+   completely independent from the others. Even worst it makes some hard-coded
+   assumption on how C-/P-States should be aggregated at CPU level to
+   identify the corresponding states at Cluster level.
+
+7. Broken support for import when host is different than target
+   The initialization of PState internal data structures is based on information
+   collected via sysfs on the HOST machine. This does not allow to properly
+   import and parse traced generated in a different target machine.
+
+8. Missing of set of validation traces
    A set of synthetic traces, specifically forged to represent corner-cases,
    could be a valuable support to test the tool and easy its validation.
    For example, by using pre-defined and human friendly events timestamps.
 
-7. Missing of a support for "graphical" validation
+9. Missing of a support for "graphical" validation
    A graphical representation of state transitions could provide a
    valuable support to validate tools computed residency timing, their matching
    with the target topology and finally the energy estimation numbers computed
    by the tools.
-
 
 Code related weaknesses
 -----------------------
@@ -460,12 +470,28 @@ Possible solutions for the highlighted wakeness
 
 5.
    A simple solution could be to replicate the code used for CState
-   entry and exit timestamps tracking for PStates residency tracking too.
+   entry and exit time tracking for the PStates residency too.
    At the end of a trace parsing, the same code which is already in charge to
    identify Cluster-Level events for CStates residencies could be used to
    compute PStates related residencies times.
 
 6.
+   That point is a bit more tricky than the others and will probably requires the
+   definition of a suitable "grammar" to represent the PM constraints related to
+   P and C states switching at Cluster level.
+   A description based on that grammar could be added to the energy model and
+   used to properly filter CPUIdle/CPUFreq events to generate a trace which
+   reports all the required events.
+   Something similar has been already hard-coded specifically for the TC2
+   target in a set of patches we could provide.
+
+7.
+   The information added in the header of the trace recorded in the target
+   machine should be extended to report the CState and PStates available in the
+   target. These entries could be used by idlestat in "import" mode to properly
+   initialize internal data structures on the host machine.
+
+8.
    A simple dataset could be generated while filtering the ftrace output
    to report the PSCI status recovered by the per-CPUs events.
 
