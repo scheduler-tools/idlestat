@@ -487,3 +487,4 @@ Others Sources
 - Power Management Changes and Secure Firmware in Linaro 13.03 onwards
   http://wiki.arm.com/ASD/PSCIpowermanagementdriver
 
+# vim: tw=80 fo=cqt wm=0
