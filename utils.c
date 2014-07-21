@@ -77,7 +77,7 @@ int read_int(const char *path, int *val)
 #define TRACE_TIME_FORMAT "%*[^[][%u] %*4s %lf:"
 
 /* Temporary globals, to be better organized */
-int cpu_to_cluster[] = {1,0,0,1,1};
+int cpu_to_cluster[] = {0,0,0,0,0};
 #define cluster(CPU) cpu_to_cluster[CPU]
 #define cluster_label(CPU) 'A'+cpu_to_cluster[CPU]
 
@@ -88,40 +88,53 @@ struct cluster {
 	int cluster_pstate; /* Cluster current P state */
 	int cluster_cstate; /* Cluster current C state */
 	/* for simplicity, use absolute CPU_ID as index */
-	int cpu_freq[5]; /* freq  0: CPU is idle */
-	int cpu_idle[5]; /* idle 99: CPU is not in that cluster */
-		         /* idle -1: CPU ative or in unknowen idle state */
-
+	int cpu_valid[5];   /* 1: CPU belong to that cluster */
+	int cpu_active[5];  /* 1: CPU currently running */
+	int cpu_freq[5];    /* last Freq request by that CPU */
+	int cpu_idle[5];    /* last Idle request by that CPU */
 } cluster_status[] = {
 	{NULL, NULL, 0, 99,
-		{ 0,  0,  0,  0,  0}, /* P-States */
-		{99, -1, -1, 99, 99}, /* C-States */
+		{ 0,  0,  0,  0,  0}, /* CPU in that cluster */
+		{ 0,  0,  0,  0,  0}, /* CPU is active */
+		{-1, -1, -1, -1, -1}, /* P-States */
+		{-2, -2, -2, -2, -2}, /* C-States */
 	}, /* ClusterA, 2x A15 */
 	{NULL, NULL, 0, 99,
-		{ 0,  0,  0,  0,  0}, /* P-States */
-		{-1, 99, 99, -1, -1}, /* C-States */
+		{ 0,  0,  0,  0,  0}, /* CPU in that cluster */
+		{ 0,  0,  0,  0,  0}, /* CPU is active */
+		{-1, -1, -1, -1, -1}, /* P-States */
+		{-2, -2, -2, -2, -2}, /* C-States */
 	}, /* ClusterB, 3x A7 */
 };
+
+#define cpu_set_valid(CLUSTER, CPU) \
+	(cluster_status[CLUSTER].cpu_valid[CPU] = 1)
+#define cpu_valid(CPU) \
+	(cluster_status[cluster(CPU)].cpu_valid[CPU] == 1)
+#define cpu_initialized(CPU) \
+	(cluster_status[cluster(CPU)].cpu_idle[CPU] != -2)
+#define same_cluster(CPU1, CPU2) \
+	(cluster(CPU1) == cluster(CPU2))
+
+#define cpu_set_running(CPU) \
+	(cluster_status[cluster(CPU)].cpu_active[CPU] = 1)
+#define cpu_set_sleeping(CPU) \
+	(cluster_status[cluster(CPU)].cpu_active[CPU] = 0)
+
+#define cpu_running(CPU) \
+	(cluster_status[cluster(CPU)].cpu_active[CPU] == 1)
+#define cpu_sleeping(CPU) \
+	(cluster_status[cluster(CPU)].cpu_active[CPU] == 0)
 
 #define cpu_freq(CPU) \
 	cluster_status[cluster(CPU)].cpu_freq[CPU]
 #define cpu_idle(CPU) \
 	cluster_status[cluster(CPU)].cpu_idle[CPU]
 
-#define cpu_freq_valid(CPU) \
-	(cluster_status[cluster(CPU)].cpu_freq[CPU] !=  0)
-#define cpu_idle_valid(CPU) \
-	(cluster_status[cluster(CPU)].cpu_idle[CPU] != -1)
-
 #define cluster_pstate(CPU) \
 	cluster_status[cluster(CPU)].cluster_pstate
 #define cluster_cstate(CPU) \
 	cluster_status[cluster(CPU)].cluster_cstate
-
-#define cluster_cpu_freq(CLUSTER, CPU) \
-	cluster_status[CLUSTER].cpu_freq[CPU]
-#define cluster_cpu_idle(CLUSTER, CPU) \
-	cluster_status[CLUSTER].cpu_idle[CPU]
 
 #define cluster_cpus_freq(CPU) \
 	cluster_status[cluster(CPU)].cpu_freq
@@ -147,11 +160,11 @@ int get_min_cstate(int *values)
 	int min_cstate = INT_MAX;
 
 	for (i = 0; i < 5; ++i) {
-		/* Disregard CPUs not in that cluster */
-		if (!cpu_idle_valid(i))
+		/* Disregard CPUs not in that cluster or not initialized */
+		if (!same_cluster(cpu, i) || !cpu_initialized(i))
 			continue;
-		if (min_cstate > values[i])
-			min_cstate = values[i];
+		if (min_cstate > cpu_idle(i))
+			min_cstate = cpu_idle(i);
 	}
 
 	return min_cstate;
@@ -163,11 +176,12 @@ int get_max_pstate(int *freqs)
 	int max_pstate = 0;
 
 	for (i = 0; i < 5; ++i) {
-		/* Disregard idle CPUs on not into this cluster */
-		if (!cpu_freq_valid(i))
+		/* Disregard CPUs idle or not in that cluster */
+		if (!same_cluster(cpu, i) || cpu_sleeping(i))
 			continue;
-		if (max_pstate < freqs[i])
-			max_pstate = freqs[i];
+			continue;
+		if (max_pstate < cpu_freq(i))
+			max_pstate = cpu_freq(i);
 	}
 
 	return max_pstate;
@@ -280,9 +294,10 @@ void switch_cluster_cstate(FILE *f, double time, unsigned int state, unsigned in
 			state);
 
 	for (i = 0; i < 5; ++i) {
-		/* Disregard CPUs not in that cluster (99) or not idle (-1) */
-		if (cluster_cpu_idle(cluster(cpu), i) == 99 ||
-		    cluster_cpu_idle(cluster(cpu), i) == -1)
+		/* Disregard CPUs not in that cluster or not idle */
+		if (!same_cluster(cpu, i)
+			|| !cpu_sleeping(i)
+			|| !cpu_initialized(i))
 			continue;
 
 		/* Generate a fake C-State exit event which is*/
@@ -314,7 +329,7 @@ void update_cstate(FILE *f, double time, unsigned int state, unsigned int cpu)
 {
 
 	/* Sanity check we update only CPUs of that cluster */
-	assert(cpu_idle(cpu) != 99);
+	assert(cpu_valid(cpu));
 
 	/* Update PSCI-Proxy C-State for that CPU */
 	cpu_idle(cpu) = state;
@@ -339,8 +354,8 @@ void update_cstate(FILE *f, double time, unsigned int state, unsigned int cpu)
 
 	/* C-State ENTER */
 
-	/* Mark CPU as idle */
-	cpu_freq(cpu) = 0;
+	/* Mark the CPU as running */
+	cpu_set_sleeping(cpu);
 
 	/* If the CPU is entering a deeper C-State than the cluster one:
 	   => notify just the CPU entering the Cluster idle state */
@@ -373,7 +388,10 @@ void switch_cluster_pstate(FILE *f, double time, unsigned int freq, unsigned int
 
 	/* All active CPUs switching to the new Cluster frequency */
 	for (i = 0; i < 5; ++i) {
-		if (cluster_cpu_freq(cluster(cpu), i) == 0)
+		/* Disregard CPUs not in that cluster or not running */
+		if (!same_cluster(cpu, i)
+			|| cpu_sleeping(i)
+			|| !cpu_initialized(i))
 			continue;
 		/* This is for sure:
 		 * - a CPU of this cluster
@@ -391,7 +409,7 @@ void update_pstate(FILE *f, double time, unsigned int freq, unsigned int cpu)
 {
 
 	/* Sanity check we update only CPUs of that cluster */
-	assert(cpu_idle(cpu) != 99);
+	assert(cpu_valid(cpu));
 
 	/* Update PSCI-Proxy PState for that CPU */
 	cpu_freq(cpu) = freq;
@@ -434,6 +452,7 @@ void setup_mapping()
 
 				cpu_to_cluster[s_cpu->cpu_id] = s_phy->physical_id;
 				cluster_status[s_phy->physical_id].cpu_idle[i] = -1;
+				cpu_set_valid(s_phy->physical_id, s_cpu->cpu_id);
 
 				print_vrb("Mapping CPU%d on Cluster%c\n",
 						s_cpu->cpu_id,
