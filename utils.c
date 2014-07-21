@@ -478,10 +478,14 @@ extern struct cpu_topology g_cpu_topo_list;
 
 void setup_mapping()
 {
+	static bool mapping_done = false;
 	struct cpu_physical *s_phy;
 	struct cpu_core     *s_core;
 	struct cpu_cpu      *s_cpu;
 	int i = 0;
+
+	if (mapping_done)
+		return;
 
 	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head, list_physical) {
 		list_for_each_entry(s_core, &s_phy->core_head, list_core) {
@@ -492,7 +496,7 @@ void setup_mapping()
 				assert(s_cpu->cpu_id < 5);
 
 				cpu_to_cluster[s_cpu->cpu_id] = s_phy->physical_id;
-				cluster_status[s_phy->physical_id].cpu_idle[i] = -1;
+
 				cpu_set_valid(s_phy->physical_id, s_cpu->cpu_id);
 
 				print_vrb("Mapping CPU%d on Cluster%c\n",
@@ -506,8 +510,8 @@ void setup_mapping()
 
 	/* TC2 specific check for expected number of mappings */
 	assert(i == 5);
-
-  }
+	mapping_done = true;
+}
 
 int store_line(const char *line, void *data)
 {

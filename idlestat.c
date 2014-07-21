@@ -1445,6 +1445,9 @@ int main(int argc, char *argv[], char *const envp[])
 		/* Read cpu topology info from sysfs */
 		read_sysfs_cpu_topo();
 
+		/* Setup TC2 CPU-to-Cluster mappings */
+		setup_mapping();
+
 		/* Stop tracing (just in case) */
 		if (idlestat_trace_enable(false)) {
 			fprintf(stderr, "idlestat requires kernel Ftrace and debugfs mounted on /sys/kernel/debug\n");
@@ -1497,6 +1500,9 @@ int main(int argc, char *argv[], char *const envp[])
 
 		/* Read cpu topology info from sysfs */
 		read_sysfs_cpu_topo();
+
+		/* Setup TC2 CPU-to-Cluster mappings */
+		setup_mapping();
 
 		fprintf(stderr, "Parsing scenario file from: %s\n", options.trace_file);
 		if (idlestat_store(options.filename, true))
