@@ -1,49 +1,71 @@
 #set terminal pngcairo  transparent enhanced font "arial,10" fontscale 1.0 size 500, 350
-set terminal pngcairo enhanced font "arial,10"
+set terminal pngcairo enhanced font "arial,10" size 1920, 1080
 
-set style line 1 lt 1 lc rgb "red"   lw 1
-set style line 2 lt 2 lc rgb "blue"  lw 1
-set style line 3 lt 2 lc rgb "green" lw 1
-set style line 4 lt 2 lc rgb "pink"  lw 1
+set style line 1 lt 1 lc rgb "red"   lw 2
+set style line 2 lt 2 lc rgb "blue"  lw 2
+set style line 3 lt 2 lc rgb "green" lw 2
+set style line 4 lt 2 lc rgb "pink"  lw 2
 
-set xlabel 'Time'
+set output 'Idlestat_VExpressTC2.png'
 
-# Cluster A
-set output 'ClusterA_CStates.png'
-set title  'ClusterA C-States'
-set ylabel 'C-State'
-set yrange [-1:3]
+# Setup subplots
+set multiplot layout 7, 1 title "VExpress TC2 Frequency and Idle States"
+set tmargin 2
 
-plot 'ClusterA_CStates.dat' using 1:3 title 'CPU_1' with steps ls 2, \
-     'ClusterA_CStates.dat' using 1:4 title 'CPU_2' with steps ls 3, \
-     'ClusterA_CStates.dat' using 1:7 title 'ClusterA' with steps ls 1
+# C-State Plots
+set ylabel  'C-State'
+set yrange [-3:3]
+set ytics 1 nomirror
 
-set output 'ClusterA_PStates.png'
-set title  'ClusterA P-States'
-set ylabel 'P-State'
-set yrange [0:2000000]
+# P-State Plots
+set y2label 'P-State'
+set y2range [-1200:1200]
+set y2tics 500 nomirror
+set my2tics 5
 
-plot 'ClusterA_PStates.dat' using 1:3 title 'CPU_1' with steps ls 2, \
-     'ClusterA_PStates.dat' using 1:4 title 'CPU_2' with steps ls 3, \
-     'ClusterA_PStates.dat' using 1:7 title 'ClusterA' with steps ls 1
+unset xlabel
 
-# Cluster B
-set output 'ClusterB_CStates.png'
-set title  'ClusterB C-States'
-set ylabel 'C-State'
-set yrange [-1:3]
+set title "CPU1 - CPU2"
 
-plot 'ClusterB_CStates.dat' using 1:2 title 'CPU_0' with steps ls 2, \
-     'ClusterB_CStates.dat' using 1:5 title 'CPU_3' with steps ls 3, \
-     'ClusterB_CStates.dat' using 1:6 title 'CPU_4' with steps ls 4, \
-     'ClusterB_CStates.dat' using 1:7 title 'ClusterB' with steps ls 1
+# Figure out t0 from the events trace
+xmin = `sort -nk 1 ClusterA_CStates.dat | head -n 1 | awk '{print $1}'`
 
-set output 'ClusterB_PStates.png'
-set title  'ClusterB P-States'
-set ylabel 'P-State'
-set yrange [0:2000000]
+# set title "ClusterA - CPU0"
+plot 'ClusterA_PStates.dat' using ($1-xmin):($1/1000) title '0-P-State' with steps ls 3 axes x1y2, \
+     'ClusterA_CStates.dat' using ($1-xmin):(-$1)     title '0-C-State' with steps ls 1 axes x1y1
 
-plot 'ClusterB_PStates.dat' using 1:2 title 'CPU_0' with steps ls 2, \
-     'ClusterB_PStates.dat' using 1:5 title 'CPU_3' with steps ls 3, \
-     'ClusterB_CStates.dat' using 1:6 title 'CPU_4' with steps ls 4, \
-     'ClusterB_PStates.dat' using 1:7 title 'ClusterB' with steps ls 1
+unset title
+# set title "ClusterA - CPU1"
+plot 'ClusterA_PStates.dat' using ($1-xmin):($2/1000) title '1-P-State' with steps ls 3 axes x1y2, \
+     'ClusterA_CStates.dat' using ($1-xmin):(-$2)     title '1-C-State' with steps ls 1 axes x1y1
+
+set title "ClusterA"
+# set title "ClusterA"
+plot 'ClusterA_PStates.dat' using ($1-xmin):($7/1000) title 'B-P-State' with steps ls 3 axes x1y2, \
+     'ClusterA_CStates.dat' using ($1-xmin):(-$7)     title 'B-C-State' with steps ls 1 axes x1y1
+
+
+set title "CPU2 - CPU3 - CPU4"
+
+# Figure out t0 from the events trace
+xmin = `sort -nk 1 ClusterB_CStates.dat | head -n 1 | awk '{print $1}'`
+
+# set title "ClusterB - CPU2"
+plot 'ClusterB_PStates.dat' using ($1-xmin):($4/1000) title '2-P-State' with steps ls 3 axes x1y2, \
+     'ClusterB_CStates.dat' using ($1-xmin):(-$4)     title '2-C-State' with steps ls 1 axes x1y1
+
+unset title
+# set title "ClusterB - CPU3"
+plot 'ClusterB_PStates.dat' using ($1-xmin):($5/1000) title '3-P-State' with steps ls 3 axes x1y2, \
+     'ClusterB_CStates.dat' using ($1-xmin):(-$5)     title '3-C-State' with steps ls 1 axes x1y1
+
+# set title "ClusterB - CPU4"
+plot 'ClusterB_PStates.dat' using ($1-xmin):($6/1000) title '4-P-State' with steps ls 3 axes x1y2, \
+     'ClusterB_CStates.dat' using ($1-xmin):(-$6)     title '4-C-State' with steps ls 1 axes x1y1
+
+set title "ClusterB"
+
+# set title "ClusterB"
+plot 'ClusterB_PStates.dat' using ($1-xmin):($7/1000) title 'B-P-State' with steps ls 3 axes x1y2, \
+     'ClusterB_CStates.dat' using ($1-xmin):(-$7)     title 'B-C-State' with steps ls 1 axes x1y1
+
