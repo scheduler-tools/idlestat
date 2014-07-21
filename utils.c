@@ -156,8 +156,8 @@ struct cluster {
 
 int get_min_cstate(int cpu)
 {
-	int i;
 	int min_cstate = INT_MAX;
+	int i;
 
 	for (i = 0; i < 5; ++i) {
 		/* Disregard CPUs not in that cluster or not initialized */
@@ -175,8 +175,8 @@ int get_min_cstate(int cpu)
 
 int get_max_pstate(int cpu)
 {
-	int i;
 	int max_pstate = 0;
+	int i;
 
 	for (i = 0; i < 5; ++i) {
 		/* Disregard CPUs idle or not in that cluster */
@@ -379,7 +379,7 @@ void update_cstate(FILE *f, double time, unsigned int state, unsigned int cpu)
 	}
 
 	/* The CPU is entering a C-State which is lower than the Cluster one:
-	   => all idle CPUs enters this new higer C-State */
+	   => all idle CPUs enters this new higher C-State */
 	switch_cluster_cstate(f, time, state, cpu);
 
 update_pstates:
@@ -400,7 +400,7 @@ void switch_cluster_pstate(FILE *f, double time, unsigned int freq, unsigned int
 {
 	int i;
 
-	/* Keep track of new cluster p_State */
+	/* Keep track of new cluster PState */
 	cluster_pstate(cpu) = freq;
 
 	print_vrb("Switch Cluster%c frequency to %u Hz\n",
