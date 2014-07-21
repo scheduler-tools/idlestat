@@ -1,0 +1,140 @@
+# version = 0.4-rc1
+# cpus=5
+# clusterA:
+# 	core0
+# 		cpu1
+# 	core1
+# 		cpu2
+# clusterB:
+# 	core0
+# 		cpu0
+# 	core1
+# 		cpu3
+# 	core2
+# 		cpu4
+
+
+################################################################################
+#
+# Execution scenario (2x A15)
+#
+# Per CPU status transitions:
+#
+#           +--------------+--------------+--------------+
+#      CPU1 |      C0      |      C1      |      P2      |
+#           +----+----+---------+----+---------+----+----+
+#      CPU2 | C0 | C1 | P0 | C0 | C1 | P1 | C0 | C1 | P3 |   Time
+#           +----+----+----+----+----+----+----+----+----+-------->
+#           |    .    .    .    .    .    .    .    .    |
+#           0 [us].......... 100 [us] divisons ..........900 [us]
+#
+# ClusterA (expected) status transitions:
+#
+#           +---------+    +---------+
+#  C-States | C0   C0 |    | C0   C1 |
+#           +---------+    +---------+
+#
+#                     +----+         +----+---------+----+
+#  P-States           | P0 |         | P1 |    P2   | P3 |
+#                     +----+         +----+---------+----+
+
+
+################################################################################
+# Initial state setup
+################################################################################
+
+#===== @ 00 [us]
+# CPU 0 notify current P-State
+     idlestat/vex-tc2  [000] d...  1000.000000: cpu_idle: state=4294967295 cpu_id=0
+     idlestat/vex-tc2  [000] ....  1000.000000: cpu_frequency: state=350000 cpu_id=0
+     idlestat/vex-tc2  [000] d...  1000.000000: cpu_idle: state=0 cpu_id=0
+
+# CPU 1 notify current P-State
+     idlestat/vex-tc2  [001] d...  1000.000000: cpu_idle: state=4294967295 cpu_id=1
+     idlestat/vex-tc2  [001] ....  1000.000000: cpu_frequency: state=500000 cpu_id=1
+     idlestat/vex-tc2  [001] d...  1000.000000: cpu_idle: state=0 cpu_id=1
+
+# CPU 2 notify current P-State
+     idlestat/vex-tc2  [002] d...  1000.000000: cpu_idle: state=4294967295 cpu_id=2
+     idlestat/vex-tc2  [002] ....  1000.000000: cpu_frequency: state=500000 cpu_id=2
+     idlestat/vex-tc2  [002] d...  1000.000000: cpu_idle: state=0 cpu_id=2
+
+# CPU 3 notify current P-State
+     idlestat/vex-tc2  [003] d...  1000.000000: cpu_idle: state=4294967295 cpu_id=3
+     idlestat/vex-tc2  [003] ....  1000.000000: cpu_frequency: state=350000 cpu_id=3
+     idlestat/vex-tc2  [003] d...  1000.000000: cpu_idle: state=0 cpu_id=3
+
+# CPU 4 notify current P-State
+     idlestat/vex-tc2  [004] d...  1000.000000: cpu_idle: state=4294967295 cpu_id=4
+     idlestat/vex-tc2  [004] ....  1000.000000: cpu_frequency: state=350000 cpu_id=4
+
+################################################################################
+# CPU 4 signal workload START marker, than goes to idle in C0
+################################################################################
+
+# CPU 4 assert START marker, than it enters C0
+     idlestat/vex-tc2  [004] ....  1000.000000: idlestat_start
+     idlestat/vex-tc2  [004] d...  1000.000000: cpu_idle: state=0 cpu_id=4
+
+################################################################################
+# From this point on, only CPU 1 and 2 are used
+################################################################################
+
+#===== @ 000 [us]
+# CPU1 in C0
+     idlestat/vex-tc2  [001] d...  1000.000000: cpu_idle: state=4294967295 cpu_id=1
+     idlestat/vex-tc2  [001] d...  1000.000000: cpu_idle: state=0 cpu_id=1
+# CPU2 in C0
+     idlestat/vex-tc2  [002] d...  1000.000000: cpu_idle: state=4294967295 cpu_id=2
+     idlestat/vex-tc2  [002] d...  1000.000000: cpu_idle: state=0 cpu_id=2
+
+#===== @ 100 [us]
+# CPU2 in C1
+     idlestat/vex-tc2  [002] d...  1000.000100: cpu_idle: state=4294967295 cpu_id=2
+     idlestat/vex-tc2  [002] d...  1000.000100: cpu_idle: state=1 cpu_id=2
+
+#===== @ 200 [us]
+# CPU2 in P1
+     idlestat/vex-tc2  [002] d...  1000.000200: cpu_idle: state=4294967295 cpu_id=2
+
+#===== @ 300 [us]
+# CPU2 in C0
+     idlestat/vex-tc2  [002] d...  1000.000300: cpu_idle: state=0 cpu_id=2
+# CPU1 in C1
+     idlestat/vex-tc2  [001] d...  1000.000300: cpu_idle: state=4294967295 cpu_id=1
+     idlestat/vex-tc2  [001] d...  1000.000300: cpu_idle: state=1 cpu_id=1
+
+#===== @ 400 [us]
+# CPU2 in C1
+     idlestat/vex-tc2  [002] d...  1000.000400: cpu_idle: state=4294967295 cpu_id=2
+     idlestat/vex-tc2  [002] d...  1000.000400: cpu_idle: state=1 cpu_id=2
+
+#===== @ 500 [us]
+# CPU2 in P2
+     idlestat/vex-tc2  [002] d...  1000.000500: cpu_idle: state=4294967295 cpu_id=2
+     idlestat/vex-tc2  [002] ....  1000.000500: cpu_frequency: state=600000 cpu_id=2
+
+#===== @ 600 [us]
+# CPU2 in C0
+     idlestat/vex-tc2  [002] d...  1000.000600: cpu_idle: state=0 cpu_id=2
+# CPU1 in P1
+     idlestat/vex-tc2  [001] d...  1000.000600: cpu_idle: state=4294967295 cpu_id=1
+     idlestat/vex-tc2  [001] ....  1000.000600: cpu_frequency: state=700000 cpu_id=1
+
+#===== @ 700 [us]
+# CPU2 in C1
+     idlestat/vex-tc2  [002] d...  1000.000700: cpu_idle: state=4294967295 cpu_id=2
+     idlestat/vex-tc2  [002] d...  1000.000700: cpu_idle: state=1 cpu_id=2
+
+#===== @ 800 [us]
+# CPU2 in P4
+     idlestat/vex-tc2  [002] d...  1000.000800: cpu_idle: state=4294967295 cpu_id=2
+     idlestat/vex-tc2  [002] ....  1000.000800: cpu_frequency: state=800000 cpu_id=2
+
+################################################################################
+# CPU 4 wakeups to signal workload END marker
+################################################################################
+
+#===== @ 900 [us]
+     idlestat/vex-tc2  [004] d...  1000.000900: cpu_idle: state=4294967295 cpu_id=4
+     idlestat/vex-tc2  [004] ....  1000.000900: idlestat_end
