@@ -24,6 +24,8 @@
 CFLAGS?=-g -Wall
 CC=gcc
 
+DEST?=/work/derkling/rootfs/data/local/
+
 OBJS = idlestat.o topology.o trace.o utils.o energy_model.o
 
 default: idlestat
@@ -33,6 +35,9 @@ default: idlestat
 
 idlestat: $(OBJS)
 	$(CROSS_COMPILE)$(CC) $(CFLAGS) $(OBJS) -o $@
+
+install: idlestat
+	cp $< $(DEST)
 
 clean:
 	rm -f $(OBJS) idlestat
