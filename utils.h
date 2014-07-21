@@ -56,5 +56,6 @@ extern int file_read_value(const char *path, const char *name,
 
 void setup_mapping();
 void close_gnuplot_data(void);
+void update_pstate(FILE *f, double time, unsigned int freq, unsigned int cpu);
 
 #endif

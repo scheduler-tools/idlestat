@@ -342,19 +342,27 @@ void update_cstate(FILE *f, double time, unsigned int state, unsigned int cpu)
 	/* C-State EXIT */
 	if (state == -1) {
 
+		/* Mark the CPU as running */
+		cpu_set_running(cpu);
+
 		/* Trace the CPU active event */
 		fprintf(f, EVENT_IDLE_FORMAT, cpu, time, state, cpu);
 		print_vrb(EVENT_IDLE_FDEBUG, cpu, time, ">>>", state, cpu);
 
-		/* Notify all other idle CPUs that now on the cluster
+		/* Check if we are exiting a deep-idle state, in that case:
+		 * Notify all other idle CPUs that now on the cluster
 		 * has been switched to C0 */
-		if (cluster_cstate(cpu) > 0)
+		if (cluster_cstate(cpu) > 0) {
+			/* Current CPU C-State should be updated after the
+			 * previous check */
+			cpu_idle(cpu) = 0;
 			switch_cluster_cstate(f, time, 0, cpu);
+		} else {
+			/* A running CPU keeps the cluster not lower than C0 */
+			cpu_idle(cpu) = 0;
+		}
 
-		/* A running CPU keeps the cluster not lower than C0 */
-		cpu_idle(cpu) = 0;
-
-		return;
+		goto update_pstates;
 	}
 
 	/* C-State ENTER */
@@ -367,14 +375,21 @@ void update_cstate(FILE *f, double time, unsigned int state, unsigned int cpu)
 	if (cluster_cstate(cpu) == get_min_cstate(cpu)) {
 		fprintf(f, EVENT_IDLE_FORMAT, cpu, time, cluster_cstate(cpu), cpu);
 		print_vrb(EVENT_IDLE_FDEBUG, cpu, time, ">>>", cluster_cstate(cpu), cpu);
-		goto exit_plot;
+		goto update_pstates;
 	}
 
 	/* The CPU is entering a C-State which is lower than the Cluster one:
 	   => all idle CPUs enters this new higer C-State */
 	switch_cluster_cstate(f, time, state, cpu);
 
-exit_plot:
+update_pstates:
+
+	/* P-State UPDATE */
+
+	/* Since this was an active CPU, we should update the frequency of
+	 * the still active CPUs */
+	update_pstate(f, time, 0, cpu);
+
 	/* Just for debuggin */
 	dump_gnuplot_idle(time, cpu);
 
