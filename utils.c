@@ -154,7 +154,7 @@ struct cluster {
 #define EVENT_IDLE_FDEBUG "     idlestat/vex-tc2  [%03d] .... %12.6f: %s idle: state=%u cpu_id=%u\n"
 #define EVENT_MARK_FDEBUG "     idlestat/vex-tc2  [%03d] .... %12.6f: %s idlestat_%s\n"
 
-int get_min_cstate(int *values)
+int get_min_cstate(int cpu)
 {
 	int i;
 	int min_cstate = INT_MAX;
@@ -163,6 +163,9 @@ int get_min_cstate(int *values)
 		/* Disregard CPUs not in that cluster or not initialized */
 		if (!same_cluster(cpu, i) || !cpu_initialized(i))
 			continue;
+		/* Running CPUs always enforeces WFI status */
+		if (cpu_running(i))
+			return 0;
 		if (min_cstate > cpu_idle(i))
 			min_cstate = cpu_idle(i);
 	}
@@ -170,7 +173,7 @@ int get_min_cstate(int *values)
 	return min_cstate;
 }
 
-int get_max_pstate(int *freqs)
+int get_max_pstate(int cpu)
 {
 	int i;
 	int max_pstate = 0;
@@ -179,6 +182,8 @@ int get_max_pstate(int *freqs)
 		/* Disregard CPUs idle or not in that cluster */
 		if (!same_cluster(cpu, i) || cpu_sleeping(i))
 			continue;
+		/* Disregard CPUs not initialized */
+		if (!cpu_initialized(i))
 			continue;
 		if (max_pstate < cpu_freq(i))
 			max_pstate = cpu_freq(i);
@@ -359,7 +364,7 @@ void update_cstate(FILE *f, double time, unsigned int state, unsigned int cpu)
 
 	/* If the CPU is entering a deeper C-State than the cluster one:
 	   => notify just the CPU entering the Cluster idle state */
-	if (cluster_cstate(cpu) == get_min_cstate(cluster_cpus_idle(cpu))) {
+	if (cluster_cstate(cpu) == get_min_cstate(cpu)) {
 		fprintf(f, EVENT_IDLE_FORMAT, cpu, time, cluster_cstate(cpu), cpu);
 		print_vrb(EVENT_IDLE_FDEBUG, cpu, time, ">>>", cluster_cstate(cpu), cpu);
 		goto exit_plot;
@@ -407,16 +412,18 @@ void switch_cluster_pstate(FILE *f, double time, unsigned int freq, unsigned int
 
 void update_pstate(FILE *f, double time, unsigned int freq, unsigned int cpu)
 {
+	int max_pstate;
 
 	/* Sanity check we update only CPUs of that cluster */
 	assert(cpu_valid(cpu));
 
 	/* Update PSCI-Proxy PState for that CPU */
 	cpu_freq(cpu) = freq;
+	max_pstate = get_max_pstate(cpu);
 
 	/* If the CPU is entering a lower P-State than the cluster one:
 	   => notify just the CPU entering the higer Cluster frequency */
-	if (cluster_pstate(cpu) == get_max_pstate(cluster_cpus_freq(cpu))) {
+	if (cluster_pstate(cpu) == max_pstate) {
 		fprintf(f, EVENT_FREQ_FORMAT, cpu, time, cluster_pstate(cpu), cpu);
 		print_vrb(EVENT_FREQ_FDEBUG, cpu, time, ">>>", cluster_pstate(cpu), cpu);
 		goto exit_plot;
