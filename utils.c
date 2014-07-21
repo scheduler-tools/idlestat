@@ -418,8 +418,27 @@ void update_pstate(FILE *f, double time, unsigned int freq, unsigned int cpu)
 	assert(cpu_valid(cpu));
 
 	/* Update PSCI-Proxy PState for that CPU */
-	cpu_freq(cpu) = freq;
+
+	/* This method is called also whan a CPU is entering an idle state
+	 * in that cases the current CPU frequency is not going to be updated
+	 * since at wake-up it will re-enter that frequency */
+	if (cpu_running(cpu) && freq != 0)
+		cpu_freq(cpu) = freq;
+
+	/* If this is the last CPU of a cluster to enter idle, we do not need
+	 * to generate any additional event, just report event for plotting */
 	max_pstate = get_max_pstate(cpu);
+	if (max_pstate == 0)
+		goto exit_plot;
+
+	/* If this CPU is going to sleep:
+	 * update frequency of other active CPUs */
+	if (cpu_sleeping(cpu)) {
+		if (cluster_pstate(cpu) == max_pstate)
+			return;
+		switch_cluster_pstate(f, time, max_pstate, cpu);
+		goto exit_plot;
+	}
 
 	/* If the CPU is entering a lower P-State than the cluster one:
 	   => notify just the CPU entering the higer Cluster frequency */
@@ -431,7 +450,7 @@ void update_pstate(FILE *f, double time, unsigned int freq, unsigned int cpu)
 
 	/* The CPU is entering a P-State which is higher than the Cluster one:
 	   => all active CPUs enters this new higer P-State */
-	switch_cluster_pstate(f, time, freq, cpu);
+	switch_cluster_pstate(f, time, max_pstate, cpu);
 
 exit_plot:
 	/* Just for debugging */
