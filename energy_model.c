@@ -247,6 +247,8 @@ static struct pstate_energy_info *find_pstate_energy_info(const unsigned int clu
 	return NULL;
 }
 
+#define US_TO_SEC(US) (US / 1e6)
+
 void calculate_energy_consumption(void)
 {
 	struct cpu_physical *s_phy;
@@ -260,7 +262,6 @@ void calculate_energy_consumption(void)
 	unsigned int current_cluster;
 	struct cstate_energy_info *cp;
 	struct pstate_energy_info *pp;
-	unsigned int cluster_cstate_count;
 	struct cluster_energy_info *clustp;
 
 	/* Contributions are computed per Cluster */
@@ -268,7 +269,6 @@ void calculate_energy_consumption(void)
 	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head,
 			    list_physical) {
 		current_cluster = s_phy->physical_id;
-		cluster_cstate_count = 0;
 		clustp = cluster_energy_table + current_cluster;
 
 		print_vrb("\n\nCluster%c\n", 'A'+current_cluster);
@@ -290,11 +290,24 @@ void calculate_energy_consumption(void)
 						j, c->name, c->nrdata, c->duration);
 				continue;
 			}
-			cluster_cstate_count += c->nrdata;
+
+			/* Cluster WU energy: defined just for wakeups from C1 */
+			if (strcmp(c->name, "C1") == 0) {
+
+				energy_from_wakeups += c->nrdata * clustp->wakeup_energy.cluster_wakeup_energy;
+
+			}
+
 			/* NOTE: this keeps track of just the last C-State
 			 * duration... are you assuming this is the C1
 			 * residency time ?!? */
-			cp->cluster_duration = c->duration;
+			/* The filtered trace is now accounting properly all the
+			 * intervals in wich a CPUs is asking for C1 but it is
+			 * actually only being in WFI. Since a WFI event is
+			 * genarated in that case, it is not more qequired to
+			 * compute that funny:
+			 *    total_WFI - C1 on which cluster is not in C1
+			 */
 			energy_from_idle += c->duration * cp->cluster_idle_power;
 
 			print_vrb("      C%d +%6d hits for [%s] => %d, cd %f, efi %f\n",
@@ -305,9 +318,10 @@ void calculate_energy_consumption(void)
 
 		}
 
-		/* All C-States and P-States for the CPUs on current Cluster */
+		/* Add current cluster wakeup energy contribution */
+		/* This assumes that cluster wakeup hits equal the number of cluster C-States enter */
 
-		energy_from_wakeups += (1 << 10) * cluster_cstate_count * clustp->wakeup_energy.cluster_wakeup_energy;
+		/* All C-States and P-States for the CPUs on current Cluster */
 		list_for_each_entry(s_core, &s_phy->core_head, list_core) {
 
 			/* On big.LITTLE every Core has just one CPU */
@@ -331,13 +345,21 @@ void calculate_energy_consumption(void)
 							c->nrdata, c->duration);
 						continue;
 					}
-					energy_from_idle += (c->duration - cp->cluster_duration) * cp->core_idle_power;
+					energy_from_idle += c->duration * cp->core_idle_power;
 
 					print_vrb("Cpu%d, C%d +%6d hits for [%s] => %d, cd %f, efi %f\n",
 							s_cpu->cpu_id, i, c->nrdata, c->name,
 							cluster_cstate_count,
 							cp->cluster_duration,
 							energy_from_idle);
+
+					/* CPU WU energy: defined just for wakeups from WFI (on filtered trace) */
+					if (strcmp(c->name, "WFI") == 0) {
+
+						energy_from_wakeups += c->nrdata * clustp->wakeup_energy.core_wakeup_energy;
+
+					}
+
 
 				}
 
@@ -383,10 +405,34 @@ void calculate_energy_consumption(void)
 					energy_from_cap_states);
 		}
 	}
+
+	/* NOTE: wakeups are accounted in hits only, since the time
+	 *       componente is assumed to be constant for each hit and
+	 *       must be added by scaling 'E_wu' by:
+	 *          LOAD_AVG_MAX/1024 = (47742/1024)
+	 *       where
+	 *          LOAD_AVG_MAX == maximum possible load avg
+	 */
+	energy_from_wakeups *= 47742;
+	energy_from_wakeups /= 1024;
+
 	printf("\n");
-	printf("energy consumption from cap states \t%e\n", energy_from_cap_states);
-	printf("energy consumption from idle \t\t%e\n", energy_from_idle);
-	printf("energy consumption from wakeups \t%e\n", energy_from_wakeups);
-	total_energy_used = energy_from_cap_states + energy_from_idle + energy_from_wakeups;
-	printf("total energy consumption estimate \t%e\n", total_energy_used);
+	/* Convert all [us] components to [s] just here to avoid summing
+	 * truncation errors due to small components */
+	printf("energy consumption from cap states \t%14.0f (%e)\n",
+			US_TO_SEC(energy_from_cap_states),
+			US_TO_SEC(energy_from_cap_states));
+	printf("energy consumption from idle \t\t%14.0f (%e)\n",
+			US_TO_SEC(energy_from_idle),
+			US_TO_SEC(energy_from_idle));
+	printf("energy consumption from wakeups \t%14.0f (%e)\n",
+			energy_from_wakeups,
+			energy_from_wakeups);
+	total_energy_used =
+		US_TO_SEC(energy_from_cap_states) +
+		US_TO_SEC(energy_from_idle) +
+		energy_from_wakeups;
+	printf("\ntotal energy consumption estimate \t%14.0f (%e)\n\n\n",
+			total_energy_used,
+			total_energy_used);
 }
