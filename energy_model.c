@@ -254,10 +254,16 @@ void calculate_energy_consumption(void)
 	struct cpu_physical *s_phy;
 	struct cpu_core     *s_core;
 	struct cpu_cpu      *s_cpu;
-	double total_energy_used = 0.0;
-	double energy_from_cap_states = 0.0;
-	double energy_from_idle = 0.0;
-	double energy_from_wakeups = 0.0;
+
+	/* Overall energy breakdown */
+	double total_energy = 0.0;
+
+	/* Per cluster energy breakdown  */
+	double cluster_energy = 0.0;
+	double cluster_cap = 0.0;
+	double cluster_idl = 0.0;
+	double cluster_wkp = 0.0;
+
 	int i, j;
 	unsigned int current_cluster;
 	struct cstate_energy_info *cp;
@@ -295,14 +301,14 @@ void calculate_energy_consumption(void)
 			/* Cluster WU energy: defined just for wakeups from C1 */
 			if (strcmp(c->name, "C1") == 0) {
 
-				energy_from_wakeups += c->nrdata * clustp->wakeup_energy.cluster_wakeup_energy;
+				cluster_wkp += c->nrdata * clustp->wakeup_energy.cluster_wakeup_energy;
 
 				print_vrb("      C%d +%7d wkps frm [%4s] | %13s | %7s | %7d | %12s | %12s | %12.0f |\n",
 					j, c->nrdata, c->name,
 					"", "",
 					clustp->wakeup_energy.cluster_wakeup_energy,
 					"", "",
-					energy_from_wakeups);
+					cluster_wkp);
 			}
 
 			/* NOTE: this keeps track of just the last C-State
@@ -315,14 +321,14 @@ void calculate_energy_consumption(void)
 			 * compute that funny:
 			 *    total_WFI - C1 on which cluster is not in C1
 			 */
-			energy_from_idle += c->duration * cp->cluster_idle_power;
+			cluster_idl += c->duration * cp->cluster_idle_power;
 
 			print_vrb("      C%d +%7d hits for [%4s] | %13.0f | %7d | %7s | %12s | %12.0f | %12s |\n",
 					j, c->nrdata, c->name,
 					c->duration,
 					cp->cluster_idle_power,
 					"", "",
-					energy_from_idle,
+					cluster_idl,
 					"");
 
 		}
@@ -354,27 +360,27 @@ void calculate_energy_consumption(void)
 						/* 	c->nrdata, c->duration); */
 						continue;
 					}
-					energy_from_idle += c->duration * cp->core_idle_power;
+					cluster_idl += c->duration * cp->core_idle_power;
 
 					print_vrb("Cpu%d  C%d +%7d hits for [%4s] | %13.0f | %7d | %7s | %12s | %12.0f | %12s |\n",
 							s_cpu->cpu_id, i, c->nrdata, c->name,
 							c->duration,
 							cp->core_idle_power,
 							"", "",
-							energy_from_idle,
+							cluster_idl,
 							"");
 
 					/* CPU WU energy: defined just for wakeups from WFI (on filtered trace) */
 					if (strcmp(c->name, "WFI") == 0) {
 
-						energy_from_wakeups += c->nrdata * clustp->wakeup_energy.core_wakeup_energy;
+						cluster_wkp += c->nrdata * clustp->wakeup_energy.core_wakeup_energy;
 
 						print_vrb("Cpu%d  C%d +%6d wkps frm [%4s] | %13s | %7s | %7d | %12s | %12s | %12.0f |\n",
 								s_cpu->cpu_id, i, c->nrdata, c->name,
 								"", "",
 								clustp->wakeup_energy.core_wakeup_energy,
 								"", "",
-								energy_from_idle);
+								cluster_idl);
 					}
 
 
@@ -397,14 +403,16 @@ void calculate_energy_consumption(void)
 						/* 	p->count, p->duration); */
 						continue;
 					}
+
 					pp->max_core_duration = MAX(p->duration, pp->max_core_duration);
-					energy_from_cap_states += p->duration * pp->core_power;
+
+					cluster_cap += p->duration * pp->core_power;
 
 					print_vrb("Cpu%d  P%d +%7d hits for [%4d] | %13.0f | %7d | %7s | %12.0f | %12s | %12s |\n",
 							s_cpu->cpu_id, i, p->count, p->freq/1000,
 							p->duration, pp->core_power,
 							"",
-							energy_from_cap_states,
+							cluster_cap,
 							"", "");
 				}
 			}
@@ -416,14 +424,14 @@ void calculate_energy_consumption(void)
 		 */
 		for (i = 0; i < clustp->number_cap_states; i++) {
 			pp = &clustp->p_energy[i];
-			energy_from_cap_states += pp->max_core_duration * pp->cluster_power;
+			cluster_cap += pp->max_core_duration * pp->cluster_power;
 
 			print_vrb("      P%d casp estimate for [%4d] | %13.0f | %7d | %7s | %12.0f | %12s | %12s |\n",
 					clustp->number_cap_states - i - 1, pp->speed,
 					pp->max_core_duration,
 					pp->cluster_power,
 					"",
-					energy_from_cap_states,
+					cluster_cap,
 					"", "");
 		}
 	}
@@ -435,26 +443,29 @@ void calculate_energy_consumption(void)
 	 *       where
 	 *          LOAD_AVG_MAX == maximum possible load avg
 	 */
-	energy_from_wakeups *= 47742;
-	energy_from_wakeups /= 1024;
+	cluster_wkp *= 47742;
+	cluster_wkp /= 1024;
+
 
 	printf("\n");
 	/* Convert all [us] components to [s] just here to avoid summing
 	 * truncation errors due to small components */
 	printf("energy consumption from cap states \t%14.0f (%e)\n",
-			US_TO_SEC(energy_from_cap_states),
-			US_TO_SEC(energy_from_cap_states));
+			US_TO_SEC(cluster_cap),
+			US_TO_SEC(cluster_cap));
 	printf("energy consumption from idle \t\t%14.0f (%e)\n",
-			US_TO_SEC(energy_from_idle),
-			US_TO_SEC(energy_from_idle));
+			US_TO_SEC(cluster_idl),
+			US_TO_SEC(cluster_idl));
 	printf("energy consumption from wakeups \t%14.0f (%e)\n",
-			energy_from_wakeups,
-			energy_from_wakeups);
-	total_energy_used =
-		US_TO_SEC(energy_from_cap_states) +
-		US_TO_SEC(energy_from_idle) +
-		energy_from_wakeups;
+			cluster_wkp,
+			cluster_wkp);
+	cluster_energy =
+		US_TO_SEC(cluster_cap) +
+		US_TO_SEC(cluster_idl) +
+		cluster_wkp;
+
+	total_energy += cluster_energy;
 	printf("\ntotal energy consumption estimate \t%14.0f (%e)\n\n\n",
-			total_energy_used,
-			total_energy_used);
+			total_energy,
+			total_energy);
 }
