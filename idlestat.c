@@ -1230,7 +1230,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 static int idlestat_file_for_each_line(const char *path, void *data,
 					int (*handler)(const char *, void *))
 {
-	FILE *f;
+	FILE *f, *f2;
 	int ret;
 
 	if (!handler)
@@ -1243,7 +1243,14 @@ static int idlestat_file_for_each_line(const char *path, void *data,
 		return -1;
 	}
 
+	f2 = fopen("/tmp/trace.org", "w+");
+	if (!f)
+		fprintf(stderr, "%s: failed to backup trace\n", __func__);
+
 	while (fgets(buffer, BUFSIZE, f)) {
+
+		if (f2)
+			fprintf(f2, "%s", buffer);
 
 		/* ignore comments and empty line */
 		if (buffer[0] == '#' || buffer[0] == 0x0A)
@@ -1255,6 +1262,7 @@ static int idlestat_file_for_each_line(const char *path, void *data,
 	}
 
 	fclose(f);
+	fclose(f2);
 
 	return ret;
 }
