@@ -9,6 +9,83 @@
 #include "list.h"
 #include "utils.h"
 
+
+#define SYSFS_BASE /sys/class/hwmon/hwmon
+enum hwmon_sensor {
+	A15_ICORE = 0,
+	A7_ICORE,
+	DCC,
+	A15_PCORE,
+	A7_PCORE,
+	A15_JCORE,
+	A7_JCORE,
+	MCC,
+
+	/* This must be the last entry */
+	HWMON_COUNT
+};
+static char *hwmon_file[] = {
+	"curr1_input",
+	"curr1_input",
+	"temp1_input",
+	"power1_input",
+	"power1_input",
+	"energy1_input",
+	"energy1_input",
+	"temp1_input",
+};
+static char *hwmon_desc[] = {
+	"A15 Icore",
+	"A7 Icore",
+	"DCC",
+	"A15 Pcore",
+	"A7 Pcore",
+	"A15 Jcore",
+	"A7 Jcore",
+	"MCC",
+};
+static unsigned long long hwmon_value[sizeof(hwmon_file)] = {0, };
+
+int hwmon_dump(bool reset)
+{
+	char filename[] = "/sys/class/hwmon/hwmon0/device/pretty_long_filename";
+	char buff[] = "123456789000";
+	unsigned long long value, diff;
+	FILE *f;
+	int i;
+
+	for (i = 0; i < HWMON_COUNT; ++i) {
+		snprintf(filename+31, sizeof(filename)-31, "%s", hwmon_file[i]);
+		filename[22] = '0' + i;
+
+		f = fopen(filename, "r");
+		if (!f) {
+			fprintf(stderr, "Reading HWMON counter [%s] FAILED (Error: %d, %s)\n",
+					filename, errno, strerror(errno));
+			return -1;
+		}
+		/* Read current counter value */
+		fgets(buff, sizeof(buff), f);
+		value = strtoull(buff, NULL, 10);
+		fclose(f);
+
+		print_vrb("HWMON %12s (%-45s): %llu\n", hwmon_desc[i], filename, value);
+
+		/* Initialize first value */
+		if (reset) {
+			hwmon_value[i] = value;
+			continue;
+		}
+
+		/* Compute diff since last reading */
+		diff = value - hwmon_value[i];
+		hwmon_value[i] = diff;
+
+	}
+
+	return 0;
+}
+
 static char buffer[BUFSIZE];
 
 static struct cluster_energy_info *cluster_energy_table;
