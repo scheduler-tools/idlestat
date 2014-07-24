@@ -1475,9 +1475,15 @@ int main(int argc, char *argv[], char *const envp[])
 		if (idlestat_wake_all(true))
 			return -1;
 
+		/* Keep track of current HWMon Energy Counters */
+		hwmon_dump(true);
+
 		/* Execute the command or wait a specified delay */
 		if (execute(argc - args, &argv[args], envp, &options))
 			return -1;
+
+		/* Measure actual energy consumption */
+		hwmon_dump(false);
 
 		/* Wake up all cpus again to account for last idle state */
 		if (idlestat_wake_all(false))
