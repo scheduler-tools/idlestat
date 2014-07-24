@@ -230,6 +230,20 @@ static struct cpuidle_cstate *inter(double start, double end,
 		for (j = index; j < c2->nrdata; j++) {
 			struct cpuidle_data *tmp;
 
+			/* Discard events ending before the START marker */
+			if (c1->data[i].end < start || c2->data[i].end < start)
+				continue;
+
+			/* Discard events starting AFTER the END marker */
+			if (c1->data[i].begin >= end || c2->data[i].begin >= end)
+				continue;
+
+			/* Trim events start and end time */
+			c1->data[i].begin = MAX(start, c1->data[i].begin);
+			c1->data[i].end   = MIN(end,   c1->data[i].end);
+			c2->data[i].begin = MAX(start, c2->data[i].begin);
+			c2->data[i].end   = MIN(end,   c2->data[i].end);
+
 			/* intervals are ordered, no need to go further */
 			if (c1->data[i].end < c2->data[j].begin)
 				break;
