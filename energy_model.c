@@ -3,6 +3,10 @@
 #include <string.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 
 #include "idlestat.h"
 #include "topology.h"
@@ -84,6 +88,52 @@ int hwmon_dump(bool reset)
 	}
 
 	return 0;
+}
+
+static FILE *f = NULL;
+static char energy_dump_fn[] = "tc2_energy.dat";
+
+int energy_dump_open()
+{
+	struct stat stats;
+
+	f = fopen(energy_dump_fn, "a");
+	if (!f) {
+		fprintf(stderr, "Dump cluster energy FAILED (Error: %d, %s)\n",
+				errno, strerror(errno));
+		return -1;
+	}
+
+	/* Dump hearder if the file is new */
+	if (fstat(fileno(f), &stats) == 0) {
+		if (stats.st_size == 0)
+			fprintf(f, "# %12s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s\n",
+				"A15_Cap", "A15_Idl", "A15_Wkp", "A15_Est", "A15_Mea",
+				"A7_Cap", "A7_Idl", "A7_Wkp", "A7_Est", "A7_Mea",
+				"TotModel", "TotMeasured");
+	}
+
+	return 0;
+}
+
+void energy_dump_cluster(double e_cap, double e_idl, double e_wkp, double i_tot, unsigned long long m_tot)
+{
+	if (!f)
+		return;
+
+	fprintf(f, "%14.0f %14.0f %14.0f %14.0f %14llu ",
+			e_cap, e_idl, e_wkp,
+			i_tot, m_tot);
+
+}
+
+void energy_dump_close(double i_tot, unsigned long long m_tot)
+{
+	if (!f)
+		return;
+
+	fprintf(f, "%14.0f %14llu\n", i_tot, m_tot);
+	fclose(f);
 }
 
 static char buffer[BUFSIZE];
