@@ -383,12 +383,14 @@ void calculate_energy_consumption(void)
 	struct cpu_cpu      *s_cpu;
 
 	/* Overall energy breakdown */
+	unsigned long long total_measured = 0.0;
 	double total_energy = 0.0;
 	double total_cap = 0.0;
 	double total_idl = 0.0;
 	double total_wkp = 0.0;
 
 	/* Per cluster energy breakdown  */
+	unsigned long long cluster_measured;
 	double cluster_energy;
 	double cluster_cap;
 	double cluster_idl;
@@ -400,6 +402,9 @@ void calculate_energy_consumption(void)
 	struct pstate_energy_info *pp;
 	struct cluster_energy_info *clustp;
 
+
+	energy_dump_open();
+
 	/* Contributions are computed per Cluster */
 
 	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head,
@@ -407,6 +412,7 @@ void calculate_energy_consumption(void)
 		current_cluster = s_phy->physical_id;
 		clustp = cluster_energy_table + current_cluster;
 
+		cluster_measured = 0;
 		cluster_energy = 0.0;
 		cluster_cap = 0.0;
 		cluster_idl = 0.0;
@@ -609,12 +615,23 @@ void calculate_energy_consumption(void)
 		cluster_energy = cluster_cap + cluster_idl + cluster_wkp;
 		total_energy += cluster_energy;
 
-		printf("Cluster%c Energy Index %14.0f (%e)\n",
+		cluster_measured = hwmon_value[A15_JCORE + current_cluster];
+		total_measured += cluster_measured;
+
+		printf("Cluster%c Energy Index %14.0f (%e) - Energy Measure: %14llu\n",
 				'A'+current_cluster,
-				cluster_energy, cluster_energy);
+				cluster_energy, cluster_energy,
+				cluster_measured);
+
+
+		energy_dump_cluster(
+				cluster_cap, cluster_idl, cluster_wkp,
+				cluster_energy, hwmon_value[A15_JCORE + current_cluster]);
 
 	}
 
-	printf("\n   Total Energy Index %14.0f (%e)\n\n\n",
-			total_energy, total_energy);
+	printf("\n   Total Energy Index %14.0f (%e) - Energy Measure: %14llu\n\n\n",
+			total_energy, total_energy, total_measured);
+
+	energy_dump_close(total_energy, total_measured);
 }
