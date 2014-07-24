@@ -257,12 +257,15 @@ void calculate_energy_consumption(void)
 
 	/* Overall energy breakdown */
 	double total_energy = 0.0;
+	double total_cap = 0.0;
+	double total_idl = 0.0;
+	double total_wkp = 0.0;
 
 	/* Per cluster energy breakdown  */
-	double cluster_energy = 0.0;
-	double cluster_cap = 0.0;
-	double cluster_idl = 0.0;
-	double cluster_wkp = 0.0;
+	double cluster_energy;
+	double cluster_cap;
+	double cluster_idl;
+	double cluster_wkp;
 
 	int i, j;
 	unsigned int current_cluster;
@@ -276,6 +279,11 @@ void calculate_energy_consumption(void)
 			    list_physical) {
 		current_cluster = s_phy->physical_id;
 		clustp = cluster_energy_table + current_cluster;
+
+		cluster_energy = 0.0;
+		cluster_cap = 0.0;
+		cluster_idl = 0.0;
+		cluster_wkp = 0.0;
 
 		print_vrb("\n\nCluster%c%25s | %13s | %7s | %7s | %12s | %12s | %12s |\n",
 				'A'+current_cluster, "", "[us] Duration", "Power", "Energy", "E_cap", "E_idle", "E_wkup");
@@ -434,38 +442,49 @@ void calculate_energy_consumption(void)
 					cluster_cap,
 					"", "");
 		}
+
+		/* NOTE: wakeups are accounted in hits only, since the time
+		 *       componente is assumed to be constant for each hit and
+		 *       must be added by scaling 'E_wu' by:
+		 *          LOAD_AVG_MAX/1024 = (47742/1024)
+		 *       where
+		 *          LOAD_AVG_MAX == maximum possible load avg
+		 */
+		cluster_wkp *= 47742;
+		cluster_wkp /= 1024;
+
+
+		printf("\n");
+
+		print_vrb("\n\nCluster%c%25s | %13s | %7s | %7s | %12s | %12s | %12s |\n",
+				'A'+current_cluster, "", "[us] Duration", "Power", "Energy", "E_cap", "E_idle", "E_wkup");
+
+		/* Convert all [us] components to [s] just here to avoid summing
+		 * truncation errors due to small components */
+		cluster_cap = US_TO_SEC(cluster_cap);
+		cluster_idl = US_TO_SEC(cluster_idl);
+
+		printf("Cluster%c Energy Caps  %14.0f (%e)\n",
+				'A'+current_cluster, cluster_cap, cluster_cap);
+		total_cap += cluster_cap;
+
+		printf("Cluster%c Energy Idle  %14.0f (%e)\n",
+				'A'+current_cluster, cluster_idl, cluster_idl);
+		total_idl += cluster_idl;
+
+		printf("Cluster%c Energy Wkps  %14.0f (%e)\n",
+				'A'+current_cluster, cluster_wkp, cluster_wkp);
+		total_wkp += cluster_wkp;
+
+		cluster_energy = cluster_cap + cluster_idl + cluster_wkp;
+		total_energy += cluster_energy;
+
+		printf("Cluster%c Energy Index %14.0f (%e)\n",
+				'A'+current_cluster,
+				cluster_energy, cluster_energy);
+
 	}
 
-	/* NOTE: wakeups are accounted in hits only, since the time
-	 *       componente is assumed to be constant for each hit and
-	 *       must be added by scaling 'E_wu' by:
-	 *          LOAD_AVG_MAX/1024 = (47742/1024)
-	 *       where
-	 *          LOAD_AVG_MAX == maximum possible load avg
-	 */
-	cluster_wkp *= 47742;
-	cluster_wkp /= 1024;
-
-
-	printf("\n");
-	/* Convert all [us] components to [s] just here to avoid summing
-	 * truncation errors due to small components */
-	printf("energy consumption from cap states \t%14.0f (%e)\n",
-			US_TO_SEC(cluster_cap),
-			US_TO_SEC(cluster_cap));
-	printf("energy consumption from idle \t\t%14.0f (%e)\n",
-			US_TO_SEC(cluster_idl),
-			US_TO_SEC(cluster_idl));
-	printf("energy consumption from wakeups \t%14.0f (%e)\n",
-			cluster_wkp,
-			cluster_wkp);
-	cluster_energy =
-		US_TO_SEC(cluster_cap) +
-		US_TO_SEC(cluster_idl) +
-		cluster_wkp;
-
-	total_energy += cluster_energy;
-	printf("\ntotal energy consumption estimate \t%14.0f (%e)\n\n\n",
-			total_energy,
-			total_energy);
+	printf("\n   Total Energy Index %14.0f (%e)\n\n\n",
+			total_energy, total_energy);
 }
