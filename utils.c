@@ -201,10 +201,15 @@ void dump_psci_proxy_status()
 	}
 }
 
+bool init_completed = false;
+
 void dump_gnuplot_idle(double time, unsigned int cpu)
 {
 	char gpfilename[] = "./ClusterA_CStates.dat";
 	int cluster_id = cluster(cpu);
+
+	if (!init_completed)
+		return;
 
 	if (cluster_gplot_idle(cpu) == NULL) {
 		gpfilename[9] = 'A' + cluster_id;
@@ -228,6 +233,9 @@ void dump_gnuplot_freq(double time, unsigned int cpu)
 {
 	char gpfilename[] = "./ClusterA_PStates.dat";
 	int cluster_id = cluster(cpu);
+
+	if (!init_completed)
+		return;
 
 	if (cluster_gplot_freq(cpu) == NULL) {
 		gpfilename[9] = 'A' + cluster_id;
@@ -486,6 +494,21 @@ int store_line(const char *line, void *data)
 
 		fprintf(f, EVENT_MARK_FORMAT, cpu, time, "start");
 		print_vrb(EVENT_MARK_FDEBUG, cpu, time, ">>>", "start");
+
+		init_completed = true;
+
+		/* Dump initial configuration */
+		for (cpu = 0; cpu < 5 && cluster_status[0].cpu_valid[cpu]; ++cpu)
+			; /* Find first CPU con ClusterA */
+		dump_gnuplot_idle(time, cpu);
+		dump_gnuplot_freq(time, cpu);
+		for (cpu = 0; cpu < 5 && cluster_status[1].cpu_valid[cpu]; ++cpu)
+			; /* Find first CPU con ClusterB */
+		dump_gnuplot_idle(time, cpu);
+		dump_gnuplot_freq(time, cpu);
+
+		/* dump_psci_proxy_status(); */
+
 		return 0;
 	}
 
