@@ -206,7 +206,8 @@ static struct cpuidle_data *intersection(struct cpuidle_data *data1,
 	return data;
 }
 
-static struct cpuidle_cstate *inter(struct cpuidle_cstate *c1,
+static struct cpuidle_cstate *inter(double start, double end,
+				    struct cpuidle_cstate *c1,
 				    struct cpuidle_cstate *c2)
 {
 	int i, j;
@@ -970,7 +971,9 @@ struct cpuidle_datas *cluster_data(struct cpuidle_datas *datas)
 
 			c1 = &datas->cstates[j].cstate[i];
 
-			cstates = inter(cstates, c1);
+			cstates = inter(datas->profile_start,
+					datas->profile_end,
+					cstates, c1);
 			if (!cstates)
 				continue;
 		}
@@ -984,7 +987,9 @@ struct cpuidle_datas *cluster_data(struct cpuidle_datas *datas)
 	return result;
 }
 
-struct cpuidle_cstates *core_cluster_data(struct cpu_core *s_core)
+struct cpuidle_cstates *core_cluster_data(
+		struct cpuidle_datas *datas,
+		struct cpu_core *s_core)
 {
 	struct cpuidle_cstate *c1, *cstates;
 	struct cpuidle_cstates *result;
@@ -1013,7 +1018,9 @@ struct cpuidle_cstates *core_cluster_data(struct cpu_core *s_core)
 		list_for_each_entry(s_cpu, &s_core->cpu_head, list_cpu) {
 			c1 = &s_cpu->cstates->cstate[i];
 
-			cstates = inter(cstates, c1);
+			cstates = inter(datas->profile_start,
+					datas->profile_end,
+					cstates, c1);
 			if (!cstates)
 				continue;
 		}
@@ -1028,7 +1035,9 @@ struct cpuidle_cstates *core_cluster_data(struct cpu_core *s_core)
 	return result;
 }
 
-struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
+struct cpuidle_cstates *physical_cluster_data(
+		struct cpuidle_datas *datas,
+		struct cpu_physical *s_phy)
 {
 	struct cpuidle_cstate *c1, *cstates;
 	struct cpuidle_cstates *result;
@@ -1050,7 +1059,9 @@ struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
 		list_for_each_entry(s_core, &s_phy->core_head, list_core) {
 			c1 = &s_core->cstates->cstate[i];
 
-			cstates = inter(cstates, c1);
+			cstates = inter(datas->profile_start,
+					datas->profile_end,
+					cstates, c1);
 			if (!cstates)
 				continue;
 		}

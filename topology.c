@@ -440,11 +440,11 @@ int establish_idledata_to_topo(struct cpuidle_datas *datas)
 	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head,
 			    list_physical)
 		list_for_each_entry(s_core, &s_phy->core_head, list_core)
-			s_core->cstates = core_cluster_data(s_core);
+			s_core->cstates = core_cluster_data(datas, s_core);
 
 	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head,
 			    list_physical)
-		s_phy->cstates = physical_cluster_data(s_phy);
+		s_phy->cstates = physical_cluster_data(datas, s_phy);
 
 	return 0;
 }
