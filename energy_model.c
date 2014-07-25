@@ -443,15 +443,18 @@ void calculate_energy_consumption(void)
 					"", "");
 		}
 
-		/* NOTE: wakeups are accounted in hits only, since the time
-		 *       componente is assumed to be constant for each hit and
-		 *       must be added by scaling 'E_wu' by:
-		 *          LOAD_AVG_MAX/1024 = (47742/1024)
-		 *       where
-		 *          LOAD_AVG_MAX == maximum possible load avg
+		/* The scheduler model is normalized to a wake-up rate of 1000 wake-ups per
+		 * second. Thus that conversion is required:
+		 *
+		 * idlestate_wakeup_energy = sched_wakeup_energy * 47742 / (1000 * 1024)
+		 *
+		 * where:
+		 * - 47742: Removes wake-up tracking pre-scaling.
+		 * -  1024: Removes << 10
+		 * -  1000: Single wake-up instead of 1000/s.
 		 */
 		cluster_wkp *= 47742;
-		cluster_wkp /= 1024;
+		cluster_wkp /= (1024 * 1000);
 
 
 		printf("\n");
