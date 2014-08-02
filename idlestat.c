@@ -1070,6 +1070,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		{ "duration",    required_argument, NULL, 't' },
 		{ "version",     no_argument,       NULL, 'V' },
 		{ "dump",        no_argument,       NULL, 'z' },
+		{ "verbose",     no_argument,       NULL, 'v' },
 		{ 0, 0, 0, 0 }
 	};
 	int c;
@@ -1082,7 +1083,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, ":df:hi:t:Vz",
+		c = getopt_long(argc, argv, ":df:hi:t:Vvz",
 				long_options, &optindex);
 		if (c == -1)
 			break;
@@ -1107,6 +1108,9 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 			break;
 		case 'z':
 			options->dump = true;
+			break;
+		case 'v':
+			options->verbose++;
 			break;
 		case 0:     /* getopt_long() set a variable, just keep going */
 			break;

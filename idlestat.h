@@ -133,6 +133,7 @@ struct program_options {
 	int format;
 	unsigned int duration;
 	char *filename;
+	int verbose;
 };
 
 
