@@ -129,10 +129,14 @@ enum formats {
 struct program_options {
 	int mode;
 	int format;
+	int display;
 	unsigned int duration;
 	char *filename;
 	int verbose;
 };
 
+#define IDLE_DISPLAY      0x1
+#define FREQUENCY_DISPLAY 0x2
+#define WAKEUP_DISPLAY    0x4
 
 #endif

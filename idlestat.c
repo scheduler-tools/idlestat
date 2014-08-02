@@ -1087,7 +1087,7 @@ static void help(const char *cmd)
 {
 	fprintf(stderr,
 		"\nUsage:\nTrace mode: %s --trace -f|--trace-file <filename>"
-		" -t|--duration <seconds> ",
+		" -t|--duration <seconds> -c|--idle -p|--frequency -w|--wakeup",
 		basename(cmd));
 	fprintf(stderr,
 		"\nReporting mode: %s --import -f|--trace-file <filename>",
@@ -1113,6 +1113,9 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		{ "duration",    required_argument, NULL, 't' },
 		{ "version",     no_argument,       NULL, 'V' },
 		{ "verbose",     no_argument,       NULL, 'v' },
+		{ "idle",        no_argument,       NULL, 'c' },
+		{ "frequency",   no_argument,       NULL, 'p' },
+		{ "wakeup",      no_argument,       NULL, 'w' },
 		{ 0, 0, 0, 0 }
 	};
 	int c;
@@ -1125,7 +1128,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, ":df:ht:Vv",
+		c = getopt_long(argc, argv, ":df:ht:cpwVv",
 				long_options, &optindex);
 		if (c == -1)
 			break;
@@ -1140,6 +1143,15 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 			break;
 		case 't':
 			options->duration = atoi(optarg);
+			break;
+		case 'c':
+			options->display |= IDLE_DISPLAY;
+			break;
+		case 'p':
+			options->display |= FREQUENCY_DISPLAY;
+			break;
+		case 'w':
+			options->display |= WAKEUP_DISPLAY;
 			break;
 		case 'V':
 			version(argv[0]);
@@ -1179,6 +1191,9 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 			return -1;
 		}
 	}
+
+	if (options->display == 0)
+		options->display = IDLE_DISPLAY;
 
 	return optind;
 }
@@ -1429,13 +1444,17 @@ int main(int argc, char *argv[], char *const envp[])
 	 */
 	if (0 == establish_idledata_to_topo(datas)) {
 
-		display_cstates_header();
-		dump_cpu_topo_info(display_cstates, 0);
-		display_cstates_footer();
+		if (options.display & IDLE_DISPLAY) {
+			display_cstates_header();
+			dump_cpu_topo_info(display_cstates, 0);
+			display_cstates_footer();
+		}
 
-		display_pstates_header();
-		dump_cpu_topo_info(display_pstates, 1);
-		display_pstates_footer();
+		if (options.display & FREQUENCY_DISPLAY) {
+			display_pstates_header();
+			dump_cpu_topo_info(display_pstates, 1);
+			display_pstates_footer();
+		}
 	}
 
 	release_cpu_topo_cstates();
