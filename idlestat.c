@@ -1210,6 +1210,7 @@ static int idlestat_wake_all(void)
 {
 	int rcpu, i, ret;
 	cpu_set_t cpumask;
+	cpu_set_t original_cpumask;
 
 	ret = sysconf(_SC_NPROCESSORS_CONF);
 	if (ret < 0)
@@ -1219,10 +1220,17 @@ static int idlestat_wake_all(void)
 	if (rcpu < 0)
 		return -1;
 
+	/* Keep track of the CPUs we will run on */
+	sched_getaffinity(0, sizeof(original_cpumask), &original_cpumask);
+
 	for (i = 0; i < ret; i++) {
 
 		/* Pointless to wake up ourself */
 		if (i == rcpu)
+			continue;
+
+		/* Pointless to wake CPUs we will not run on */
+		if (!CPU_ISSET(i, &original_cpumask))
 			continue;
 
 		CPU_ZERO(&cpumask);
@@ -1230,6 +1238,9 @@ static int idlestat_wake_all(void)
 
 		sched_setaffinity(0, sizeof(cpumask), &cpumask);
 	}
+
+	/* Enable all the CPUs of the original mask */
+	sched_setaffinity(0, sizeof(original_cpumask), &original_cpumask);
 
 	return 0;
 }
