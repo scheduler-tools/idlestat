@@ -75,34 +75,6 @@ static void charrep(char c, int count)
 		printf("%c", c);
 }
 
-static void display_cstates_header(void)
-{
-	charrep('-', 80);
-	printf("\n");
-
-	printf("| C-state  |   min    |   max    |   avg    |   total  | hits  |  over | under |\n");
-}
-
-static void display_cstates_footer(void)
-{
-	charrep('-', 80);
-	printf("\n\n");
-}
-
-static void display_pstates_header(void)
-{
-	charrep('-', 64);
-	printf("\n");
-
-	printf("| P-state  |   min    |   max    |   avg    |   total  | hits  |\n");
-}
-
-static void display_pstates_footer(void)
-{
-	charrep('-', 64);
-	printf("\n\n");
-}
-
 static void display_cpu_header(char *cpu, int length)
 {
 	charrep('-', length);
@@ -145,6 +117,20 @@ static void display_factored_freq(int freq, int align)
 	}
 }
 
+static void display_cstates_header(void)
+{
+	charrep('-', 80);
+	printf("\n");
+
+	printf("| C-state  |   min    |   max    |   avg    |   total  | hits  |  over | under |\n");
+}
+
+static void display_cstates_footer(void)
+{
+	charrep('-', 80);
+	printf("\n\n");
+}
+
 static int display_cstates(void *arg, char *cpu)
 {
 	int i;
@@ -182,6 +168,20 @@ static int display_cstates(void *arg, char *cpu)
 	}
 
 	return 0;
+}
+
+static void display_pstates_header(void)
+{
+	charrep('-', 64);
+	printf("\n");
+
+	printf("| P-state  |   min    |   max    |   avg    |   total  | hits  |\n");
+}
+
+static void display_pstates_footer(void)
+{
+	charrep('-', 64);
+	printf("\n\n");
 }
 
 static int display_pstates(void *arg, char *cpu)
@@ -225,19 +225,41 @@ static int display_pstates(void *arg, char *cpu)
 	return 0;
 }
 
-static int display_wakeup_sources(struct wakeup_info *wakeinfo, char *str)
+static void display_wakeup_header(void)
+{
+	charrep('-', 44);
+	printf("\n");
+
+	printf("| Wakeup |  #  |       Name      |  Count  |\n");
+}
+
+static void display_wakeup_footer(void)
+{
+	charrep('-', 44);
+	printf("\n\n");
+}
+
+static int display_wakeup(void *arg, char *cpu)
 {
 	int i;
+	bool cpu_header = false;
+	struct cpuidle_cstates *cstates = arg;
+	struct wakeup_info *wakeinfo = &cstates->wakeinfo;
 	struct wakeup_irq *irqinfo = wakeinfo->irqinfo;
 
-	printf("%s wakeups \tname \t\tcount\tunexpected\n", str);
 	for (i = 0; i < wakeinfo->nrdata; i++, irqinfo++) {
-		printf("%*c %s%03d\t%-15.15s\t%d\t%d\n", (int)strlen(str),
-		       ' ',
+
+		if (!cpu_header) {
+			display_cpu_header(cpu, 44);
+			cpu_header = true;
+			charrep('-', 44);
+			printf("\n");
+		}
+
+		printf("| %-6s | %-3d | %15.15s | %7d |\n",
 		       (irqinfo->irq_type < IRQ_TYPE_MAX) ?
-		       irq_type_name[irqinfo->irq_type] : "NULL",
-		       irqinfo->id, irqinfo->name, irqinfo->count,
-		       irqinfo->not_predicted);
+		       irq_type_name[irqinfo->irq_type] : "???",
+		       irqinfo->id, irqinfo->name, irqinfo->count);
 	}
 
 	return 0;
@@ -1446,14 +1468,20 @@ int main(int argc, char *argv[], char *const envp[])
 
 		if (options.display & IDLE_DISPLAY) {
 			display_cstates_header();
-			dump_cpu_topo_info(display_cstates, 0);
+			dump_cpu_topo_info(display_cstates, 1);
 			display_cstates_footer();
 		}
 
 		if (options.display & FREQUENCY_DISPLAY) {
 			display_pstates_header();
-			dump_cpu_topo_info(display_pstates, 1);
+			dump_cpu_topo_info(display_pstates, 0);
 			display_pstates_footer();
+		}
+
+		if (options.display & WAKEUP_DISPLAY) {
+			display_wakeup_header();
+			dump_cpu_topo_info(display_wakeup, 1);
+			display_wakeup_footer();
 		}
 	}
 
