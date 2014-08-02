@@ -30,6 +30,7 @@
 *.orig
 *~
 \#*#
+patches
 
 #
 # Top-level files
