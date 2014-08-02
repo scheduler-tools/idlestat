@@ -68,10 +68,9 @@ static inline void *ptrerror(const char *str)
 	return NULL;
 }
 
-static int display_states(struct cpuidle_cstates *cstates,
-			  struct cpufreq_pstates *pstates, char *str)
+static int display_cstates(struct cpuidle_cstates *cstates, char *str)
 {
-	int j;
+	int i;
 
 	/* If the first C-state does not have target_residency
 	 * chances are pretty high that we dont have it for any node.
@@ -83,8 +82,8 @@ static int display_states(struct cpuidle_cstates *cstates,
 		printf("%s@state     hits\t\ttotal(us)\tavg(us)\tmin(us)\tmax(us)\n",
 			str);
 
-	for (j = 0; j < cstates->cstate_max + 1; j++) {
-		struct cpuidle_cstate *c = &cstates->cstate[j];
+	for (i = 0; i < cstates->cstate_max + 1; i++) {
+		struct cpuidle_cstate *c = &cstates->cstate[i];
 
 		if (c->nrdata == 0)
 			/* nothing to report for this state */
@@ -111,36 +110,61 @@ static int display_states(struct cpuidle_cstates *cstates,
 		}
 	}
 
-	if (pstates) {
-		for (j = 0; j < pstates->max; j++) {
-			struct cpufreq_pstate *p = &(pstates->pstate[j]);
+	return 0;
+}
 
-			if (p->count == 0)
-				/* nothing to report for this state */
-				continue;
+static int display_pstates(struct cpufreq_pstates *pstates, char *str)
+{
+	int i;
 
-			printf("%*c %-10d\t%d\t%15.2lf\t%15.2lf\t%.2lf\t%.2lf\n",
-				(int)strlen(str), ' ',
-				p->freq/1000, p->count, p->duration,
-				p->avg_time,
-				(p->min_time == DBL_MAX ? 0. : p->min_time),
-				p->max_time);
-		}
+	for (i = 0; i < pstates->max; i++) {
+
+		struct cpufreq_pstate *p = &(pstates->pstate[i]);
+
+		if (p->count == 0)
+			/* nothing to report for this state */
+			continue;
+
+		printf("%*c %-10d\t%d\t%15.2lf\t%15.2lf\t%.2lf\t%.2lf\n",
+		       (int)strlen(str), ' ',
+		       p->freq/1000, p->count, p->duration,
+		       p->avg_time,
+		       (p->min_time == DBL_MAX ? 0. : p->min_time),
+		       p->max_time);
 	}
 
-	if (strstr(str, IRQ_WAKEUP_UNIT_NAME)) {
-		struct wakeup_info *wakeinfo = &cstates->wakeinfo;
-		struct wakeup_irq *irqinfo = wakeinfo->irqinfo;
-		printf("%s wakeups \tname \t\tcount\tunexpected\n", str);
-		for (j = 0; j < wakeinfo->nrdata; j++, irqinfo++) {
-			printf("%*c %s%03d\t%-15.15s\t%d\t%d\n", (int)strlen(str),
-				' ',
-				(irqinfo->irq_type < IRQ_TYPE_MAX) ?
-				irq_type_name[irqinfo->irq_type] : "NULL",
-				irqinfo->id, irqinfo->name, irqinfo->count,
-				irqinfo->not_predicted);
-		}
+	return 0;
+}
+
+static int display_wakeup_sources(struct wakeup_info *wakeinfo, char *str)
+{
+	int i;
+	struct wakeup_irq *irqinfo = wakeinfo->irqinfo;
+
+	printf("%s wakeups \tname \t\tcount\tunexpected\n", str);
+	for (i = 0; i < wakeinfo->nrdata; i++, irqinfo++) {
+		printf("%*c %s%03d\t%-15.15s\t%d\t%d\n", (int)strlen(str),
+		       ' ',
+		       (irqinfo->irq_type < IRQ_TYPE_MAX) ?
+		       irq_type_name[irqinfo->irq_type] : "NULL",
+		       irqinfo->id, irqinfo->name, irqinfo->count,
+		       irqinfo->not_predicted);
 	}
+
+	return 0;
+}
+
+static int display_states(struct cpuidle_cstates *cstates,
+			  struct cpufreq_pstates *pstates, char *str)
+{
+	if (cstates)
+		display_cstates(cstates, str);
+
+	if (pstates)
+		display_pstates(pstates, str);
+
+	if (strstr(str, IRQ_WAKEUP_UNIT_NAME))
+		display_wakeup_sources(&cstates->wakeinfo, str);
 
 	return 0;
 }
