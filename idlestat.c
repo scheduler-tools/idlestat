@@ -1162,7 +1162,8 @@ static int idlestat_file_for_each_line(const char *path, void *data,
 	f = fopen(path, "r");
 
 	if (!f) {
-		fprintf(stderr, "%s: failed to open '%s': %m\n", __func__, path);
+		fprintf(stderr, "%s: failed to open '%s': %m\n",
+			__func__, path);
 		return -1;
 	}
 
@@ -1189,7 +1190,8 @@ static int idlestat_store(const char *path)
 	f = fopen(path, "w+");
 
 	if (!f) {
-		fprintf(stderr, "%s: failed to open '%s': %m\n", __func__, path);
+		fprintf(stderr, "%s: failed to open '%s': %m\n",
+			__func__, path);
 		return -1;
 	}
 
@@ -1320,7 +1322,8 @@ int main(int argc, char *argv[], char *const envp[])
 	if (args <= 0)
 		return 1;
 
-	/* Tracing requires manipulation of some files only accessible to root */
+	/* Tracing requires manipulation of some files only accessible
+	 * to root */
 	if ((options.mode == TRACE) && getuid()) {
 		fprintf(stderr, "must be root to run traces\n");
 		return -1;
@@ -1337,7 +1340,8 @@ int main(int argc, char *argv[], char *const envp[])
 
 		/* Stop tracing (just in case) */
 		if (idlestat_trace_enable(false)) {
-			fprintf(stderr, "idlestat requires kernel Ftrace and debugfs mounted on /sys/kernel/debug\n");
+			fprintf(stderr, "idlestat requires kernel Ftrace and "
+				"debugfs mounted on /sys/kernel/debug\n");
 			return -1;
 		}
 
