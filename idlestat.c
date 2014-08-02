@@ -68,34 +68,8 @@ static inline void *ptrerror(const char *str)
 	return NULL;
 }
 
-static int dump_states(struct cpuidle_cstates *cstates,
-		       struct cpufreq_pstates *pstates,
-		       int count, char *str)
-{
-	int j, k, kmax;
-	struct cpuidle_cstate *cstate;
-
-	for (j = 0; j < cstates->cstate_max + 1; j++) {
-		cstate = &cstates->cstate[j];
-
-		kmax = count > 0 ? MIN(count, cstate->nrdata) : cstate->nrdata;
-		for (k = 0; k < kmax; k++) {
-			printf("%lf: enter %s\n", cstate->data[k].begin,
-			       cstate->name);
-			printf("%lf: exit %s\n", cstate->data[k].end,
-			       cstate->name);
-		}
-
-		/* add a break */
-		printf("\n");
-	}
-
-	return 0;
-}
-
 static int display_states(struct cpuidle_cstates *cstates,
-			  struct cpufreq_pstates *pstates,
-			  int count, char *str)
+			  struct cpufreq_pstates *pstates, char *str)
 {
 	int j;
 
@@ -171,9 +145,9 @@ static int display_states(struct cpuidle_cstates *cstates,
 	return 0;
 }
 
-int dump_all_data(struct cpuidle_datas *datas, int count,
-		int (*dump)(struct cpuidle_cstates *,
-			    struct cpufreq_pstates *, int, char *))
+int dump_all_data(struct cpuidle_datas *datas,
+		  int (*dump)(struct cpuidle_cstates *,
+			      struct cpufreq_pstates *, char *))
 {
 	int i = 0, nrcpus = datas->nrcpus;
 	struct cpuidle_cstates *cstates;
@@ -188,7 +162,7 @@ int dump_all_data(struct cpuidle_datas *datas, int count,
 		else
 			sprintf(buffer, "cpu%d", i);
 
-		dump(cstates, pstates, count, buffer);
+		dump(cstates, pstates, buffer);
 
 		i++;
 
@@ -1041,12 +1015,10 @@ static void help(const char *cmd)
 {
 	fprintf(stderr,
 		"\nUsage:\nTrace mode: %s --trace -f|--trace-file <filename>"
-		" -t|--duration <seconds> "
-		"[-z|--dump] [-i|--iterations <number>]\n",
+		" -t|--duration <seconds> ",
 		basename(cmd));
 	fprintf(stderr,
-		"\nReporting mode: %s --import -f|--trace-file <filename>"
-		"[-z|--dump] [-i|--iterations <number>]\n",
+		"\nReporting mode: %s --import -f|--trace-file <filename>",
 		basename(cmd));
 	fprintf(stderr,
 		"\nExample:\n%s --trace -f /tmp/myoutput -t 30\n", basename(cmd));
@@ -1066,10 +1038,8 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		{ "import",      no_argument,       &options->mode, IMPORT },
 		{ "trace-file",  required_argument, NULL, 'f' },
 		{ "help",        no_argument,       NULL, 'h' },
-		{ "iterations",  required_argument, NULL, 'i' },
 		{ "duration",    required_argument, NULL, 't' },
 		{ "version",     no_argument,       NULL, 'V' },
-		{ "dump",        no_argument,       NULL, 'z' },
 		{ "verbose",     no_argument,       NULL, 'v' },
 		{ 0, 0, 0, 0 }
 	};
@@ -1083,7 +1053,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, ":df:hi:t:Vvz",
+		c = getopt_long(argc, argv, ":df:ht:Vv",
 				long_options, &optindex);
 		if (c == -1)
 			break;
@@ -1096,18 +1066,12 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 			help(argv[0]);
 			exit(0);
 			break;
-		case 'i':
-			options->iterations = atoi(optarg);
-			break;
 		case 't':
 			options->duration = atoi(optarg);
 			break;
 		case 'V':
 			version(argv[0]);
 			exit(0);
-			break;
-		case 'z':
-			options->dump = true;
 			break;
 		case 'v':
 			options->verbose++;
@@ -1126,9 +1090,6 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 			return -1;
 		}
 	}
-
-	if (options->iterations < 0)
-		fprintf(stderr, "dump values must be a positive value\n");
 
 	if (options->mode < 0) {
 		fprintf(stderr, "select a mode: --trace or --import\n");
@@ -1396,24 +1357,15 @@ int main(int argc, char *argv[], char *const envp[])
 	 * the same cluster
 	 */
 	if (0 == establish_idledata_to_topo(datas)) {
-		if (options.dump > 0)
-			dump_cpu_topo_info(options.iterations, dump_states);
-		else
-			dump_cpu_topo_info(options.iterations, display_states);
+		dump_cpu_topo_info(display_states);
 	} else {
 		cluster = cluster_data(datas);
 		if (!cluster)
 			return 1;
 
-		if (options.dump > 0) {
-			dump_all_data(datas, options.iterations, dump_states);
-			dump_all_data(cluster, options.iterations, dump_states);
-		} else {
-			dump_all_data(datas,
-				      options.iterations, display_states);
-			dump_all_data(cluster,
-				      options.iterations, display_states);
-		}
+		dump_all_data(datas, display_states);
+
+		dump_all_data(cluster, display_states);
 
 		free(cluster->cstates);
 		free(cluster);
