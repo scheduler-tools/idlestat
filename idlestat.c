@@ -1364,7 +1364,7 @@ static int execute(int argc, char *argv[], char *const envp[],
 			goto again;
 		}
 
-		if (WIFEXITED(status) && !WEXITSTATUS(status)) {
+		if (WIFEXITED(status)) {
 			/*
 			 * Cancel the timer in case the program
 			 * finished before the timeout
