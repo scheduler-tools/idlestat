@@ -449,35 +449,32 @@ int establish_idledata_to_topo(struct cpuidle_datas *datas)
 	return 0;
 }
 
-int dump_cpu_topo_info(int (*dump)(struct cpuidle_cstates *,
-				   struct cpufreq_pstates *, char *))
+int dump_cpu_topo_info(int (*dump)(void *, char *), int pstate)
 {
 	struct cpu_physical *s_phy;
 	struct cpu_core     *s_core;
 	struct cpu_cpu      *s_cpu;
-	char   tmp[30];
-	int    tab = 0;
+	char tmp[30];
 
 	list_for_each_entry(s_phy, &g_cpu_topo_list.physical_head,
 			    list_physical) {
+
 		sprintf(tmp, "cluster%c", s_phy->physical_id + 'A');
-		dump(s_phy->cstates, NULL, tmp);
+
+		if (!pstate)
+			dump(s_phy->cstates, tmp);
 
 		list_for_each_entry(s_core, &s_phy->core_head, list_core) {
-			if (s_core->is_ht) {
-				sprintf(tmp, "  core%d", s_core->core_id);
-				dump(s_core->cstates, NULL, tmp);
-
-				tab = 1;
-			} else {
-				tab = 0;
+			if (s_core->is_ht && !pstate) {
+				sprintf(tmp, "core%d", s_core->core_id);
+				dump(s_core->cstates, tmp);
 			}
 
 			list_for_each_entry(s_cpu, &s_core->cpu_head,
 					    list_cpu) {
-				sprintf(tmp, "%*ccpu%d", (tab + 1) * 2, 0x20,
-					s_cpu->cpu_id);
-				dump(s_cpu->cstates, s_cpu->pstates, tmp);
+				sprintf(tmp, "cpu%d", s_cpu->cpu_id);
+				dump(pstate ? s_cpu->pstates :
+				     s_cpu->cstates, tmp);
 			}
 		}
 	}

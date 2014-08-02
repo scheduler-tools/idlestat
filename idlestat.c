@@ -68,11 +68,88 @@ static inline void *ptrerror(const char *str)
 	return NULL;
 }
 
-static int display_cstates(struct cpuidle_cstates *cstates, char *str)
+static void charrep(char c, int count)
 {
 	int i;
+	for (i = 0; i < count; i++)
+		printf("%c", c);
+}
 
-	printf("%s@state     hits\tover\tunder\t\ttotal(us)\tavg(us)\tmin(us)\tmax(us)\n", str);
+static void display_cstates_header(void)
+{
+	charrep('-', 80);
+	printf("\n");
+
+	printf("| C-state  |   min    |   max    |   avg    |   total  | hits  |  over | under |\n");
+}
+
+static void display_cstates_footer(void)
+{
+	charrep('-', 80);
+	printf("\n\n");
+}
+
+static void display_pstates_header(void)
+{
+	charrep('-', 64);
+	printf("\n");
+
+	printf("| P-state  |   min    |   max    |   avg    |   total  | hits  |\n");
+}
+
+static void display_pstates_footer(void)
+{
+	charrep('-', 64);
+	printf("\n\n");
+}
+
+static void display_cpu_header(char *cpu, int length)
+{
+	charrep('-', length);
+	printf("\n");
+
+	printf("|%*s%*s|\n", (length / 2) - 1, cpu, ((length / 2) - 1), "");
+}
+
+static void display_factored_time(double time, int align)
+{
+	char buffer[128];
+
+	if (time < 1000) {
+		sprintf(buffer, "%.0lfus", time);
+		printf("%*s", align, buffer);
+	}
+	else if (time < 1000000) {
+		sprintf(buffer, "%.2lfms", time / 1000.0);
+		printf("%*s", align, buffer);
+	}
+	else {
+		sprintf(buffer, "%.2lfs", time / 1000000.0);
+		printf("%*s", align, buffer);
+	}
+}
+
+static void display_factored_freq(int freq, int align)
+{
+	char buffer[128];
+
+	if (freq < 1000) {
+		sprintf(buffer, "%dHz", freq);
+		printf("%*s", align, buffer);
+	} else if (freq < 1000000) {
+		sprintf(buffer, "%.2fMHz", (float)freq / 1000.0);
+		printf("%*s", align, buffer);
+	} else {
+		sprintf(buffer, "%.2fGHz", (float)freq / 1000000.0);
+		printf("%*s", align, buffer);
+	}
+}
+
+static int display_cstates(void *arg, char *cpu)
+{
+	int i;
+	bool cpu_header = false;
+	struct cpuidle_cstates *cstates = arg;
 
 	for (i = 0; i < cstates->cstate_max + 1; i++) {
 		struct cpuidle_cstate *c = &cstates->cstate[i];
@@ -81,33 +158,37 @@ static int display_cstates(struct cpuidle_cstates *cstates, char *str)
 			/* nothing to report for this state */
 			continue;
 
-		if (c->target_residency >= 0) {
-			printf("%*c %-10s%d\t%d\t%d\t%15.2lf\t%15.2lf\t%.2lf\t%.2lf\n",
-				(int)strlen(str), ' ',
-				c->name, c->nrdata,
-				c->premature_wakeup,
-				c->could_sleep_more,
-				c->duration,
-				c->avg_time,
-				(c->min_time == DBL_MAX ? 0. : c->min_time),
-				c->max_time);
-		} else {
-			printf("%*c %-10s%d\t%15.2lf\t%15.2lf\t%.2lf\t%.2lf\n",
-				(int)strlen(str), ' ',
-				c->name, c->nrdata,
-				c->duration,
-				c->avg_time,
-				(c->min_time == DBL_MAX ? 0. : c->min_time),
-				c->max_time);
+		if (!cpu_header) {
+			display_cpu_header(cpu, 80);
+			cpu_header = true;
+			charrep('-', 80);
+			printf("\n");
 		}
+
+		printf("| %8s | ", c->name);
+		display_factored_time(c->min_time == DBL_MAX ? 0. :
+				      c->min_time, 8);
+		printf(" | ");
+		display_factored_time(c->max_time, 8);
+		printf(" | ");
+		display_factored_time(c->avg_time, 8);
+		printf(" | ");
+		display_factored_time(c->duration, 8);
+		printf(" | ");
+		printf("%5d | %5d | %5d |", c->nrdata,
+		       c->premature_wakeup, c->could_sleep_more);
+
+		printf("\n");
 	}
 
 	return 0;
 }
 
-static int display_pstates(struct cpufreq_pstates *pstates, char *str)
+static int display_pstates(void *arg, char *cpu)
 {
 	int i;
+	bool cpu_header = false;
+	struct cpufreq_pstates *pstates = arg;
 
 	for (i = 0; i < pstates->max; i++) {
 
@@ -117,12 +198,28 @@ static int display_pstates(struct cpufreq_pstates *pstates, char *str)
 			/* nothing to report for this state */
 			continue;
 
-		printf("%*c %-10d\t%d\t%15.2lf\t%15.2lf\t%.2lf\t%.2lf\n",
-		       (int)strlen(str), ' ',
-		       p->freq/1000, p->count, p->duration,
-		       p->avg_time,
-		       (p->min_time == DBL_MAX ? 0. : p->min_time),
-		       p->max_time);
+		if (!cpu_header) {
+			display_cpu_header(cpu, 64);
+			cpu_header = true;
+			charrep('-', 64);
+			printf("\n");
+		}
+
+		printf("| ");
+		display_factored_freq(p->freq, 8);
+		printf(" | ");
+		display_factored_time(p->min_time == DBL_MAX ? 0. :
+				      p->min_time, 8);
+		printf(" | ");
+		display_factored_time(p->max_time, 8);
+		printf(" | ");
+		display_factored_time(p->avg_time, 8);
+		printf(" | ");
+		display_factored_time(p->duration, 8);
+		printf(" | ");
+		printf("%5d", p->count);
+		printf(" | ");
+		printf("\n");
 	}
 
 	return 0;
@@ -142,47 +239,6 @@ static int display_wakeup_sources(struct wakeup_info *wakeinfo, char *str)
 		       irqinfo->id, irqinfo->name, irqinfo->count,
 		       irqinfo->not_predicted);
 	}
-
-	return 0;
-}
-
-static int display_states(struct cpuidle_cstates *cstates,
-			  struct cpufreq_pstates *pstates, char *str)
-{
-	if (cstates)
-		display_cstates(cstates, str);
-
-	if (pstates)
-		display_pstates(pstates, str);
-
-	if (strstr(str, IRQ_WAKEUP_UNIT_NAME))
-		display_wakeup_sources(&cstates->wakeinfo, str);
-
-	return 0;
-}
-
-int dump_all_data(struct cpuidle_datas *datas,
-		  int (*dump)(struct cpuidle_cstates *,
-			      struct cpufreq_pstates *, char *))
-{
-	int i = 0, nrcpus = datas->nrcpus;
-	struct cpuidle_cstates *cstates;
-	struct cpufreq_pstates *pstates;
-
-	do {
-		cstates = &datas->cstates[i];
-		pstates = &datas->pstates[i];
-
-		if (nrcpus == -1)
-			sprintf(buffer, "cluster");
-		else
-			sprintf(buffer, "cpu%d", i);
-
-		dump(cstates, pstates, buffer);
-
-		i++;
-
-	} while (i < nrcpus && nrcpus != -1);
 
 	return 0;
 }
@@ -1290,7 +1346,6 @@ static int execute(int argc, char *argv[], char *const envp[],
 int main(int argc, char *argv[], char *const envp[])
 {
 	struct cpuidle_datas *datas;
-	struct cpuidle_datas *cluster;
 	struct program_options options;
 	int args;
 
@@ -1373,18 +1428,14 @@ int main(int argc, char *argv[], char *const envp[])
 	 * the same cluster
 	 */
 	if (0 == establish_idledata_to_topo(datas)) {
-		dump_cpu_topo_info(display_states);
-	} else {
-		cluster = cluster_data(datas);
-		if (!cluster)
-			return 1;
 
-		dump_all_data(datas, display_states);
+		display_cstates_header();
+		dump_cpu_topo_info(display_cstates, 0);
+		display_cstates_footer();
 
-		dump_all_data(cluster, display_states);
-
-		free(cluster->cstates);
-		free(cluster);
+		display_pstates_header();
+		dump_cpu_topo_info(display_pstates, 1);
+		display_pstates_footer();
 	}
 
 	release_cpu_topo_cstates();
