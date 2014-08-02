@@ -127,7 +127,6 @@ enum formats {
 };
 
 struct program_options {
-	bool debug;
 	bool dump;
 	int iterations;
 	int mode;
