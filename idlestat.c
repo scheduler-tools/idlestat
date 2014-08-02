@@ -72,15 +72,7 @@ static int display_cstates(struct cpuidle_cstates *cstates, char *str)
 {
 	int i;
 
-	/* If the first C-state does not have target_residency
-	 * chances are pretty high that we dont have it for any node.
-	 */
-	if (cstates->cstate[0].target_residency >= 0)
-		printf("%s@state     hits\tover\tunder\t\ttotal(us)\tavg(us)\tmin(us)\tmax(us)\n",
-			str);
-	else
-		printf("%s@state     hits\t\ttotal(us)\tavg(us)\tmin(us)\tmax(us)\n",
-			str);
+	printf("%s@state     hits\tover\tunder\t\ttotal(us)\tavg(us)\tmin(us)\tmax(us)\n", str);
 
 	for (i = 0; i < cstates->cstate_max + 1; i++) {
 		struct cpuidle_cstate *c = &cstates->cstate[i];
