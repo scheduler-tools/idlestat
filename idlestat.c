@@ -34,6 +34,7 @@
 #include <sched.h>
 #include <string.h>
 #include <float.h>
+#include <sys/ioctl.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/resource.h>
@@ -1380,6 +1381,23 @@ static int execute(int argc, char *argv[], char *const envp[],
 	return -1;
 }
 
+static int check_window_size(void)
+{
+	struct winsize winsize;
+	
+	/* Output is redirected */
+	if (!isatty(STDOUT_FILENO))
+		return 0;
+
+	/* Get terminal window size */
+	ioctl(STDOUT_FILENO, TIOCGWINSZ, &winsize);
+
+	if (winsize.ws_col >= 80)
+		return 0;
+
+	return -1;
+}
+
 int main(int argc, char *argv[], char *const envp[])
 {
 	struct cpuidle_datas *datas;
@@ -1394,6 +1412,12 @@ int main(int argc, char *argv[], char *const envp[])
 	 * to root */
 	if ((options.mode == TRACE) && getuid()) {
 		fprintf(stderr, "must be root to run traces\n");
+		return -1;
+	}
+
+	if (check_window_size()) {
+		fprintf(stderr, "The terminal must be at least "
+			"80 columns wide\n");
 		return -1;
 	}
 
