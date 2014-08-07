@@ -81,7 +81,11 @@ static void display_cpu_header(char *cpu, int length)
 	charrep('-', length);
 	printf("\n");
 
-	printf("|%*s%*s|\n", (length / 2) - 1, cpu, ((length / 2) - 1), "");
+	if (strstr(cpu, "cluster"))
+		printf("| %-*s |\n", length - 4, cpu);
+	else if (strstr(cpu, "core"))
+		printf("|      %-*s |\n", length - 9, cpu);
+	else printf("|             %-*s |\n", length - 16, cpu);
 }
 
 static void display_factored_time(double time, int align)
