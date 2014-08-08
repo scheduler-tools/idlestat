@@ -50,11 +50,6 @@
 #define IDLESTAT_VERSION "0.4-rc1"
 #define USEC_PER_SEC 1000000
 
-static char irq_type_name[][8] = {
-			"irq",
-			"ipi",
-		};
-
 static char buffer[BUFSIZE];
 
 static inline int error(const char *str)
@@ -261,10 +256,14 @@ static int display_wakeup(void *arg, char *cpu)
 			printf("\n");
 		}
 
-		printf("| %-6s | %-3d | %15.15s | %7d |\n",
-		       (irqinfo->irq_type < IRQ_TYPE_MAX) ?
-		       irq_type_name[irqinfo->irq_type] : "???",
-		       irqinfo->id, irqinfo->name, irqinfo->count);
+		if (irqinfo->irq_type == HARD_IRQ)
+			printf("| %-6s | %-3d | %15.15s | %7d |\n",
+			       "irq", irqinfo->id, irqinfo->name,
+			       irqinfo->count);
+
+		if (irqinfo->irq_type == IPI_IRQ)
+			printf("| %-6s | --- | %15.15s | %7d |\n",
+			       "ipi", irqinfo->name, irqinfo->count);
 	}
 
 	return 0;
@@ -854,8 +853,7 @@ static int store_irq(int cpu, int irqid, char *irqname,
 }
 
 #define TRACE_IRQ_FORMAT "%*[^[][%d] %*[^=]=%d%*[^=]=%16s"
-#define TRACE_IPIIRQ_FORMAT "%*[^[][%d] %*[^=]=%d%*[^=]=%16s"
-
+#define TRACE_IPIIRQ_FORMAT "%*[^[][%d] %*[^(](%32s"
 #define TRACECMD_REPORT_FORMAT "%*[^]]] %lf:%*[^=]=%u%*[^=]=%d"
 #define TRACE_FORMAT "%*[^]]] %*s %lf:%*[^=]=%u%*[^=]=%d"
 
@@ -872,11 +870,10 @@ static int get_wakeup_irq(struct cpuidle_datas *datas, char *buffer, int count)
 		return 0;
 	}
 
-	if (strstr(buffer, "ipi_handler_entry")) {
-		assert(sscanf(buffer, TRACE_IPIIRQ_FORMAT, &cpu, &irqid,
-			      irqname) == 3);
-
-		store_irq(cpu, irqid, irqname, datas, count, IPI_IRQ);
+	if (strstr(buffer, "ipi_entry")) {
+		assert(sscanf(buffer, TRACE_IPIIRQ_FORMAT, &cpu, irqname) == 2);
+		irqname[strlen(irqname) - 1] = '\0';
+		store_irq(cpu, -1, irqname, datas, count, IPI_IRQ);
 		return 0;
 	}
 
