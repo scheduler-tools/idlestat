@@ -1113,16 +1113,27 @@ struct cpuidle_cstates *physical_cluster_data(struct cpu_physical *s_phy)
 static void help(const char *cmd)
 {
 	fprintf(stderr,
-		"\nUsage:\nTrace mode: %s --trace -f|--trace-file <filename>"
+		"\nUsage:\nTrace mode:\n\t%s --trace -f|--trace-file <filename>"
 		" -t|--duration <seconds> -c|--idle -p|--frequency -w|--wakeup",
 		basename(cmd));
 	fprintf(stderr,
-		"\nReporting mode: %s --import -f|--trace-file <filename>",
+		"\nReporting mode:\n\t%s --import -f|--trace-file <filename>",
 		basename(cmd));
 	fprintf(stderr,
-		"\nExample:\n%s --trace -f /tmp/myoutput -t 30\n", basename(cmd));
+		"\n\nExamples:\n1. Run a trace, post-process the results"
+		" (default is to show only C-state statistics):\n\tsudo "
+		"./%s --trace -f /tmp/mytrace -t 10\n", basename(cmd));
 	fprintf(stderr,
-		"\nExample:\n%s --import -f /tmp/mytrace\n", basename(cmd));
+		"\n2. Run a trace, post-process the results and print all"
+		" statistics:\n\tsudo ./%s --trace -f /tmp/mytrace -t 10 -p -c -w\n",
+		basename(cmd));
+	fprintf(stderr,
+		"\n3. Run a trace with an external workload, post-process the"
+		" results:\n\tsudo ./%s --trace -f /tmp/mytrace -t 10 -p -c -w -- rt-app /tmp/mp3.json\n",
+		basename(cmd));
+	fprintf(stderr,
+		"\n4. Post-process a trace captured earlier:\n\tsudo ./%s"
+		" --import -f /tmp/mytrace\n", basename(cmd));
 }
 
 static void version(const char *cmd)
@@ -1388,7 +1399,7 @@ static int execute(int argc, char *argv[], char *const envp[],
 static int check_window_size(void)
 {
 	struct winsize winsize;
-	
+
 	/* Output is redirected */
 	if (!isatty(STDOUT_FILENO))
 		return 0;
