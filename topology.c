@@ -320,9 +320,6 @@ static int topo_folder_scan(char *path, folder_filter_t filter)
 
 out_free_newpath:
 		free(newpath);
-
-		if (ret)
-			break;
 	}
 
 out_free_basedir:
