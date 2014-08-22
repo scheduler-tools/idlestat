@@ -34,6 +34,7 @@
 #include <sched.h>
 #include <string.h>
 #include <float.h>
+#include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -93,6 +94,33 @@ static void charrep(char c, int count)
 	int i;
 	for (i = 0; i < count; i++)
 		printf("%c", c);
+}
+
+static int open_report_file(const char *path)
+{
+	int fd;
+	int ret = 0;
+
+	if (path) {
+		fd = open(path, O_RDWR | O_CREAT | O_TRUNC,
+					S_IRUSR | S_IWUSR | S_IRGRP |S_IROTH);
+		if (fd < 0) {
+			fprintf(stderr, "%s: failed to open '%s'\n", __func__, path);
+			return -1;
+		}
+
+		close(STDOUT_FILENO);
+
+		ret = dup2(fd, STDOUT_FILENO);
+		close(fd);
+
+		if (ret < 0) {
+			fprintf(stderr, "%s: failed to duplicate '%s'\n", __func__, path);
+			return ret;
+		}
+	}
+
+	return 0;
 }
 
 static void display_cpu_header(char *cpu, int length)
@@ -1135,11 +1163,11 @@ static void help(const char *cmd)
 {
 	fprintf(stderr,
 		"\nUsage:\nTrace mode:\n\t%s --trace -f|--trace-file <filename>"
-		" -t|--duration <seconds> -c|--idle -p|--frequency -w|--wakeup",
-		basename(cmd));
+		" -o|--output-file <filename> -t|--duration <seconds>"
+		" -c|--idle -p|--frequency -w|--wakeup", basename(cmd));
 	fprintf(stderr,
-		"\nReporting mode:\n\t%s --import -f|--trace-file <filename>",
-		basename(cmd));
+		"\nReporting mode:\n\t%s --import -f|--trace-file <filename>"
+		" -o|--output-file <filename>", basename(cmd));
 	fprintf(stderr,
 		"\n\nExamples:\n1. Run a trace, post-process the results"
 		" (default is to show only C-state statistics):\n\tsudo "
@@ -1155,6 +1183,10 @@ static void help(const char *cmd)
 	fprintf(stderr,
 		"\n4. Post-process a trace captured earlier:\n\tsudo ./%s"
 		" --import -f /tmp/mytrace\n", basename(cmd));
+	fprintf(stderr,
+		"\n5. Run a trace, post-process the results and print all"
+		" statistics into a file:\n\tsudo ./%s --trace -f /tmp/mytrace -t 10 -p -c -w"
+		" -o /tmp/myreport\n", basename(cmd));
 }
 
 static void version(const char *cmd)
@@ -1168,6 +1200,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		{ "trace",       no_argument,       &options->mode, TRACE },
 		{ "import",      no_argument,       &options->mode, IMPORT },
 		{ "trace-file",  required_argument, NULL, 'f' },
+		{ "output-file", required_argument, NULL, 'o' },
 		{ "help",        no_argument,       NULL, 'h' },
 		{ "duration",    required_argument, NULL, 't' },
 		{ "version",     no_argument,       NULL, 'V' },
@@ -1181,13 +1214,14 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 
 	memset(options, 0, sizeof(*options));
 	options->filename = NULL;
+	options->outfilename = NULL;
 	options->mode = -1;
 	options->format = -1;
 	while (1) {
 
 		int optindex = 0;
 
-		c = getopt_long(argc, argv, ":df:ht:cpwVv",
+		c = getopt_long(argc, argv, ":df:o:ht:cpwVv",
 				long_options, &optindex);
 		if (c == -1)
 			break;
@@ -1195,6 +1229,9 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		switch (c) {
 		case 'f':
 			options->filename = optarg;
+			break;
+		case 'o':
+			options->outfilename = optarg;
 			break;
 		case 'h':
 			help(argv[0]);
@@ -1244,7 +1281,7 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 		return -1;
 	}
 
-	if (bad_filename(options->filename)) {
+	if (bad_filename(options->filename) || bad_filename(options->outfilename)) {
 		return -1;
 	}
 
@@ -1455,7 +1492,7 @@ int main(int argc, char *argv[], char *const envp[])
 		return -1;
 	}
 
-	if (check_window_size()) {
+	if (check_window_size() && !options.outfilename) {
 		fprintf(stderr, "The terminal must be at least "
 			"80 columns wide\n");
 		return -1;
@@ -1529,6 +1566,8 @@ int main(int argc, char *argv[], char *const envp[])
 	 * the same cluster
 	 */
 	if (0 == establish_idledata_to_topo(datas)) {
+		if (open_report_file(options.outfilename))
+			return -1;
 
 		if (options.display & IDLE_DISPLAY) {
 			display_cstates_header();
