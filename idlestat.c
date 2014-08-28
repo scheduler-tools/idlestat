@@ -52,6 +52,30 @@
 
 static char buffer[BUFSIZE];
 
+/* I happen to agree with David Wheeler's assertion that Unix filenames
+ * are too flexible. Eliminate some of the madness.
+ * http://www.dwheeler.com/essays/fixing-unix-linux-filenames.html
+ */
+static inline int bad_filename(const char *filename)
+{
+	const char *c;
+
+	c = filename;
+	/* Check for first char being '-' */
+	if (*c == '-') {
+		fprintf(stderr, "Bad character '%c' found in filename\n", *c);
+		return EINVAL;
+	}
+	for (; *c; c++) {
+		/* Check for control chars and other bad characters */
+		if (*c < 32 || *c == '<' || *c == '>' || *c == '|') {
+			fprintf(stderr, "Bad character '%c' found in filename\n", *c);
+			return EINVAL;
+		}
+	}
+	return 0;
+}
+
 static inline int error(const char *str)
 {
 	perror(str);
@@ -1217,6 +1241,10 @@ int getoptions(int argc, char *argv[], struct program_options *options)
 
 	if (NULL == options->filename) {
 		fprintf(stderr, "expected -f <trace filename>\n");
+		return -1;
+	}
+
+	if (bad_filename(options->filename)) {
 		return -1;
 	}
 
